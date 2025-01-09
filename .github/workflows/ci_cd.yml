@@ -7,39 +7,60 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      # 1. Check out your repo
+      - uses: actions/checkout@v2
 
-    # Calculate new version number
-    - name: Calculate new version number
-      run: echo "NEW_VERSION=$(python scripts/calculate_version.py)" >> $GITHUB_ENV
+      # 2. Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
 
-    # Log in to DockerHub
-    - name: Login to DockerHub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      # 3. Calculate new version number
+      - name: Calculate new version number
+        run: echo "NEW_VERSION=$(python scripts/calculate_version.py)" >> $GITHUB_ENV
 
-    # Build and push the Docker image
-    - name: Build and Push Docker image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        push: true
-        tags: robounord/lectio_msg_tester:${{ env.NEW_VERSION }}  # Change this to your DockerHub username and image name
+      # 4. Log in to DockerHub
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-    # Update docker-compose.yml and version.txt (comment docker-compose.yml out if you don't use it)
-    - name: Update docker-compose.yml and version.txt
-      if: success()
-      run: |
-        python scripts/update_docker_compose.py ${{ env.NEW_VERSION }} || exit 1 
-        python scripts/update_version_txt.py || exit 1  
-        git config user.name github-actions || exit 1
-        git config user.email github-actions@github.com || exit 1
-        git add docker-compose.yml version.txt || exit 1
-        git commit -m "Update docker-compose and version.txt with new image version ${{ env.NEW_VERSION }}" || exit 1
-        git push || exit 1
+      #
+      # 5. Build and Push Docker image for the API
+      #
+      - name: Build and Push Docker image (API)
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          # In case you use separate Dockerfiles, set:
+          # file: Dockerfile.api
+          tags: robounord/lectio_msg_playwright_api:${{ env.NEW_VERSION }}
+
+      #
+      # 6. Build and Push Docker image for the Worker
+      #
+      - name: Build and Push Docker image (Worker)
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          # If you have a separate Dockerfile for the worker, set:
+          # file: Dockerfile.worker
+          tags: robounord/lectio_msg_playwright_worker:${{ env.NEW_VERSION }}
+
+      #
+      # 7. Update docker-compose.yml (so both services point to the new version),
+      #    as well as bump version.txt by 0.01
+      #
+      - name: Update docker-compose.yml and version.txt
+        if: success()
+        run: |
+          python scripts/update_docker_compose.py ${{ env.NEW_VERSION }} || exit 1
+          python scripts/update_version_txt.py || exit 1
+          git config user.name github-actions || exit 1
+          git config user.email github-actions@github.com || exit 1
+          git add docker-compose.yml version.txt || exit 1
+          git commit -m "Update docker-compose.yml + version.txt to new version ${{ env.NEW_VERSION }}" || exit 1
+          git push || exit 1

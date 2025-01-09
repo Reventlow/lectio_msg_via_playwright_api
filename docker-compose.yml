@@ -1,18 +1,40 @@
 version: '3.8'
+
 services:
-  worker:
-    image: robounord/lectio_msg_tester:1.17
-    container_name: lectio_msg_tester
-    command: python src/main.py
+  lectio_api:
+    build: .
+    container_name: lectio_api
+    image: robounord/lectio_msg_playwright_api:1.0
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       TZ: Europe/Copenhagen
-      DOCKER_REPO: ${DOCKER_REPO}
-      GITHUB_README: ${GITHUB_README}
-      UPTIME_KUMA_URL: ${UPTIME_KUMA_URL}
-      UPTIME_KUMA_URL_CHECK: ${UPTIME_KUMA_URL_CHECK}
-      LECTIO_USER: ${LECTIO_USER}
-      LECTIO_PASSWORD: ${LECTIO_PASSWORD}
-      LECTIO_SCHOOL_ID: ${LECTIO_SCHOOL_ID}
-      MAIN_LOOP_TIME: ${MAIN_LOOP_TIME}
       APPLITOOLS_IS_ACTIVE: ${APPLITOOLS_IS_ACTIVE}
       APPLITOOLS_API_KEY: ${APPLITOOLS_API_KEY}
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_BACKEND_URL: "redis://redis:6379/1"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+  lectio_worker:
+    build: .
+    container_name: lectio_celery_worker
+    image: robounord/lectio_msg_playwright_worker:1.0
+    command: celery -A app.tasks.celery_app worker --loglevel=INFO --concurrency=10
+    environment:
+      TZ: Europe/Copenhagen
+      APPLITOOLS_IS_ACTIVE: ${APPLITOOLS_IS_ACTIVE}
+      APPLITOOLS_API_KEY: ${APPLITOOLS_API_KEY}
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_BACKEND_URL: "redis://redis:6379/1"
+    depends_on:
+      - redis
+    deploy:
+      replicas: ${WORKER_REPLICAS}
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: lectio_redis
+    ports:
+      - "6379:6379"

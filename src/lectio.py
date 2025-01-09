@@ -1,8 +1,10 @@
+from datetime import datetime
 import sys
 import time
 import traceback
 from playwright.sync_api import sync_playwright, expect
 from applitools.playwright import Eyes, Target
+from .logs import log_event, LogLevel
 
 
 class LectioBot:
@@ -101,31 +103,53 @@ class LectioBot:
             self.eyes.check_window("Check to see if 'Ny besked' page is loaded")
         expect(locator, 'end')
 
+        # Fill out the send-to field
         to_field_locator = self.page.locator("#s_m_Content_Content_MessageThreadCtrl_addRecipientDD_inp")
         to_field_locator.fill(send_to)
         time.sleep(5)
-        self.page.click(f"text={send_to}")
 
+        # Attempt to click the recipient; if it fails, log and raise an error
+        try:
+            self.page.click(f"text={send_to}")
+        except Exception as e:
+            # Log the error that the recipient was not found
+            log_event(
+                timestamp=datetime.now(),
+                level=LogLevel.ERROR,
+                task_id="N/A",  # Or pass a real task_id if you have one
+                receiver=send_to,
+                description=f"Recipient '{send_to}' not found or not clickable in Lectio. Original error: {str(e)}"
+            )
+            # Raise an exception to stop further processing
+            raise
+
+        # Fill out the subject field
         subject_field_locator = self.page.locator(
-            "#s_m_Content_Content_MessageThreadCtrl_MessagesGV_ctl02_EditModeHeaderTitleTB_tb")
+            "#s_m_Content_Content_MessageThreadCtrl_MessagesGV_ctl02_EditModeHeaderTitleTB_tb"
+        )
         subject_field_locator.fill(subject)
 
+        # Check if the message can be replied to
         if not this_msg_can_be_replied:
             self.page.click("#s_m_Content_Content_MessageThreadCtrl_RepliesNotAllowedChkBox")
 
+        # Fill out the message field
         message_field_locator = self.page.locator(
-            "#s_m_Content_Content_MessageThreadCtrl_MessagesGV_ctl02_EditModeContentBBTB_TbxNAME_tb")
+            "#s_m_Content_Content_MessageThreadCtrl_MessagesGV_ctl02_EditModeContentBBTB_TbxNAME_tb"
+        )
         message_field_locator.fill(msg)
 
+        # Click the send button
         if self.applitools_is_active:
             self.eyes.check_window("Check to see if message is filled out correctly")
         self.page.click("#s_m_Content_Content_MessageThreadCtrl_MessagesGV_ctl02_SendMessageBtn")
         self.page.wait_for_timeout(2000)
 
+        # Check if the message was sent
         locator = self.page.locator("#s_m_Content_Content_MessageThreadCtrl_MessagesGV_ctl02_ctl03_innerBtn")
         expect(locator, 'more_vert')
         if self.applitools_is_active:
-            self.eyes.check_window("Check to see if message after it is sent")
+            self.eyes.check_window("Check to see if the message is set to sent, after it is sent")
 
         return True
 

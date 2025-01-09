@@ -1,35 +1,40 @@
+import sys
 import yaml
 
-service_name = "worker"
-docker_image_name = "robounord/lectio_msg_tester"
+# Map each service to its Docker image repository (without tag).
+SERVICES_TO_UPDATE = {
+    "lectio_api": "robounord/lectio_msg_playwright_api",
+    "lectio_worker": "robounord/lectio_msg_playwright_worker"
+}
 
 def update_docker_compose(version: str) -> int:
     with open("docker-compose.yml", 'r') as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
-    if 'services' in data:
-        if service_name in data['services']:
-            print(f"Updating image from {data['services'][service_name]['image']} to {docker_image_name}:{version}")
-            data['services'][service_name]['image'] = f"{docker_image_name}:{version}"
-        else:
-            print(f"Service '{service_name}' not found in docker-compose.yml.")
-            return 1  # Error status
-    else:
+    if 'services' not in data:
         print("Key 'services' not found in docker-compose.yml.")
-        return 1  # Error status
+        return 1
 
+    # For each service, update the image to <repo>:<new_version>
+    for service_name, docker_image_repo in SERVICES_TO_UPDATE.items():
+        if service_name in data['services']:
+            old_image = data['services'][service_name].get('image', 'unknown')
+            new_image = f"{docker_image_repo}:{version}"
+            print(f"Updating {service_name} image from '{old_image}' to '{new_image}'")
+            data['services'][service_name]['image'] = new_image
+        else:
+            print(f"Service '{service_name}' not found in docker-compose.yml. Skipped.")
+
+    # Write the updated content back to docker-compose.yml
     with open("docker-compose.yml", 'w') as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
-    return 0  # Success status
-
+    return 0  # success
 
 if __name__ == '__main__':
-    import sys
-
     if len(sys.argv) != 2:
         print("Usage: python update_docker_compose.py <new_version>")
         sys.exit(1)
 
-    new_version = sys.argv[1]
-    sys.exit(update_docker_compose(new_version))  # Exit with the status returned by the function
+    new_version_arg = sys.argv[1]
+    sys.exit(update_docker_compose(new_version_arg))

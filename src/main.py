@@ -1,63 +1,158 @@
-# 3rd party imports
+import csv
+import os
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 from datetime import datetime
-import time
+from .tasks import send_lectio_msg
 
-import import_env
-import intro
-import lectio
-import read_version
-import uptime_kuma
+LOG_FILE_PATH = "logs.csv"
 
-# import environment variables
-DOCKER_REPO = import_env.get_env_variable("DOCKER_REPO")
-GITHUB_README = import_env.get_env_variable("GITHUB_README")
-UPTIME_KUMA_URL = import_env.get_env_variable("UPTIME_KUMA_URL")
-UPTIME_KUMA_URL_CHECK = import_env.get_env_variable("UPTIME_KUMA_URL_CHECK")
-LECTIO_USER = import_env.get_env_variable("LECTIO_USER")
-LECTIO_PASSWORD = import_env.get_env_variable("LECTIO_PASSWORD")
-LECTIO_SCHOOL_ID = import_env.get_env_variable("LECTIO_SCHOOL_ID")
-MAIN_LOOP_TIME = import_env.get_env_variable("MAIN_LOOP_TIME")
-APPLITOOLS_IS_ACTIVE = True if import_env.get_env_variable("APPLITOOLS_IS_ACTIVE") == "True" else False
-APPLITOOLS_API_KEY = import_env.get_env_variable("APPLITOOLS_API_KEY")
-
-# get current version
-CURRENT_VERSION = read_version.get_version()
+app = FastAPI(
+    title="Lectio Message Sender",
+    description="API for sending messages via Lectio with async Celery tasks, now with user-supplied credentials.",
+    version="1.0.0"
+)
 
 
-def test_lectio_send_msg():
-    lectio_session = lectio.LectioBot(LECTIO_SCHOOL_ID,
-                                      LECTIO_USER,
-                                      LECTIO_PASSWORD,
-                                      True,
-                                      APPLITOOLS_IS_ACTIVE,
-                                      APPLITOOLS_API_KEY,
-                                      'lectio_msg_tester',
-                                      f'Sending test message at {datetime.now()}')
-    lectio_session.start_playwright()
-    lectio_session.login_to_lectio()
-    lectio_session.navigate_to_messages()
-    lectio_session.send_message('RPA øh',
-                                'Hourly msg test',
-                                f'This is an hourly test msg from the docker container. Time: {datetime.now()}',
-                                False,
-                                )
-    lectio_session.stop_playwright()
+class MessageRequest(BaseModel):
+    lectio_school_id: str
+    lectio_user: str
+    lectio_password: str
+    send_to: str
+    subject: str
+    body: str
+    can_be_replied: bool = True
 
 
-def main():
-    print(intro.get_intro(DOCKER_REPO, CURRENT_VERSION, GITHUB_README, UPTIME_KUMA_URL, UPTIME_KUMA_URL_CHECK))
-    while True:
-        try:
-            test_lectio_send_msg()
-            uptime_kuma.push_health_check(UPTIME_KUMA_URL)
-            print('Message sent successfully')
-            print('Sleeping for 1 hour')
-            time.sleep(int(MAIN_LOOP_TIME))
-        except Exception as e:
-            print(f'Error in main loop: {e}')
-            print('Sleeping for 5 minutes')
-            time.sleep(60*5)
+@app.get("/", response_class=HTMLResponse, tags=["Health"])
+def health_check():
+    """
+    A simple health-check endpoint.
+    """
+    return {"status": "ok", "timestamp": datetime.now()}
 
 
-if __name__ == '__main__':
-    main()
+@app.post("/send-message", tags=["Messages"])
+def api_send_message(request: MessageRequest):
+    """
+    Send a Lectio message with the provided login info and message details.
+    The message is enqueued for Celery to send in the background.
+    """
+    task = send_lectio_msg.delay(
+        lectio_school_id=request.lectio_school_id,
+        lectio_user=request.lectio_user,
+        lectio_password=request.lectio_password,
+        send_to=request.send_to,
+        subject=request.subject,
+        message=request.body,
+        can_be_replied=request.can_be_replied
+    )
+    return {"task_id": task.id, "status": "Task submitted"}
+
+
+@app.get("/logs", response_class=HTMLResponse, tags=["Logs"])
+def get_logs_pretty():
+    """
+    Reads the CSV log file and returns a Bootstrap + DataTables-based HTML page,
+    with newest entries first and sortable columns.
+    """
+    if not os.path.exists(LOG_FILE_PATH):
+        return HTMLResponse("<h3>Ingen logfil fundet.</h3>", status_code=200)
+
+    with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        rows = list(reader)
+
+    if len(rows) < 2:
+        return HTMLResponse("<h3>Logfilen er tom eller indeholder kun en header.</h3>", status_code=200)
+
+    # The first row is assumed to be the header
+    header = rows[0]
+    data_rows = rows[1:]
+
+    # Reverse the order of data_rows so the newest entries appear first
+    data_rows = data_rows[::-1]
+
+    # Build the table header (Bootstrap + DataTables table)
+    table_header = "".join(f"<th scope='col'>{col}</th>" for col in header)
+
+    # Build the table body
+    table_body = ""
+    for row in data_rows:
+        row_html = "".join(f"<td>{cell}</td>" for cell in row)
+        table_body += f"<tr>{row_html}</tr>"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8"/>
+        <title>Lectio Message Logs</title>
+
+        <!-- Bootstrap 5 CSS (CDN) -->
+        <link 
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+        />
+
+        <!-- DataTables CSS (CDN) -->
+        <link 
+          rel="stylesheet"
+          href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"
+        />
+
+        <style>
+          body {{
+            margin: 20px;
+          }}
+        </style>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <h1 class="mb-4">Lectio Message Logs</h1>
+            <div class="table-responsive">
+                <table id="logsTable" class="table table-bordered table-striped align-middle">
+                    <thead class="table-dark">
+                        <tr>{table_header}</tr>
+                    </thead>
+                    <tbody>
+                        {table_body}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- jQuery (required for DataTables) -->
+        <script 
+          src="https://code.jquery.com/jquery-3.6.0.min.js"
+          integrity="sha256-/xUj+3OJ+Y4xL2+3ea0uEpN4HUWe5KhKwf0NfGylV6w="
+          crossorigin="anonymous">
+        </script>
+
+        <!-- Bootstrap 5 JS (CDN) -->
+        <script 
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
+        </script>
+
+        <!-- DataTables JS (CDN) -->
+        <script 
+          src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js">
+        </script>
+
+        <script>
+          // Initialize DataTables once the DOM is ready
+          $(document).ready(function() {{
+              $('#logsTable').DataTable({{
+                  "paging": false,       // If you want pagination, set to true
+                  "ordering": true,      // Allows sorting by columns
+                  "info": false,         // Hides "Showing X of Y entries"
+                  "searching": true,     // If you want to remove search box, set to false
+              }});
+          }});
+        </script>
+    </body>
+    </html>
+    """
+
+    return HTMLResponse(html_content)

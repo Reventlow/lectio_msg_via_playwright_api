@@ -1,4 +1,4 @@
-FROM python:3.12.0
+FROM python:3.13.0
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED=1
@@ -27,11 +27,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/
 
-
 WORKDIR /app
+
+# Copy your source code
 COPY . .
+
+# Install python dependencies
 RUN pip install --upgrade cython && pip install --upgrade pip
 RUN ln -sf /usr/share/zoneinfo/Europe/Copenhagen /etc/localtime
-RUN pip install -r ./requirements.txt
+RUN pip install -r requirements.txt
 
+# Install playwright browsers
 RUN playwright install
+
+# Default command - you can override in docker-compose
+CMD ["uvicorn", "app.main:app", "--host=0.0.0.0", "--port=8000"]
