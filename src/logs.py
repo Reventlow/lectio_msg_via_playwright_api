@@ -11,6 +11,9 @@ class LogLevel(str, Enum):
     ERROR = "ERROR"
 
 def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver: str, description: str):
+    
+    print("Attempting to save to log to this file: " + LOG_FILE_PATH)
+        
     # Make sure the directory exists
     dir_name = os.path.dirname(LOG_FILE_PATH)
     if not os.path.exists(dir_name):
@@ -23,3 +26,5 @@ def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver: str,
             writer.writerow(["timestamp", "log_level", "task_id", "receiver", "description"])
 
         writer.writerow([timestamp.isoformat(), level, task_id, receiver, description])
+
+    print("Log saved to this file: " + LOG_FILE_PATH)
