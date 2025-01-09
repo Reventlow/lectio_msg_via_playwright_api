@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from enum import Enum
 
-LOG_FILE_PATH = "logs.csv"  # adjust as needed
+LOG_FILE_PATH = "/app/src/logs.csv"
 
 class LogLevel(str, Enum):
     SUCCESS = "SUCCESS"
