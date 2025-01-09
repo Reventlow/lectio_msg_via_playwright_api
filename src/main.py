@@ -5,6 +5,8 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from datetime import datetime
 from .tasks import send_lectio_msg
+from .tasks import celery_app
+
 
 LOG_FILE_PATH = "/app/src/logs.csv"
 
