@@ -8,7 +8,7 @@ from .tasks import send_lectio_msg
 from .tasks import celery_app
 
 
-LOG_FILE_PATH = "/app/src/logs.csv"
+LOG_FILE_PATH = "/app/src/logs/logs.csv"
 
 app = FastAPI(
     title="Lectio Message Sender",
