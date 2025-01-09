@@ -58,44 +58,47 @@ class LectioBot:
             print(f"Error stopping Playwright: {e}")
             print(traceback.format_exc())
 
-    def login_to_lectio(self):
-        login_url = f"https://www.lectio.dk/lectio/{self.school_id}/login.aspx?prevurl=default.aspx&type=brugernavn"
-        print("Accessing webpage: " + login_url)
+def login_to_lectio(self):
+    login_url = f"https://www.lectio.dk/lectio/{self.school_id}/login.aspx?prevurl=default.aspx&type=brugernavn"
+    print("Accessing webpage: " + login_url)
 
-        try:
-            self.page.goto(login_url)
-            if self.applitools_is_active:
-                self.eyes.check_window("Lectio Login page")
-            locator = self.page.locator('.maintitle')
-            expect(locator).to_contain_text("Lectio Log ind")
-            print("Login page found")
-        except Exception as e:
-            print(e)
-            print(traceback.format_exc())
-            return False
+    try:
+        self.page.goto(login_url)
+        if self.applitools_is_active:
+            self.eyes.check_window("Lectio Login page")
+        locator = self.page.locator('.maintitle')
+        expect(locator).to_contain_text("Lectio Log ind")
+        print("Login page found")
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
+        return False
 
-        try:
-            print("Insert user name")
-            self.page.fill("#username", self.lectio_user)
-            print("Insert passsword")
-            self.page.fill("#password", self.lectio_password)
-            print("Clicking the submit button")
-            self.page.click("#m_Content_submitbtn2")
-            print("Submit button clicked")
-            time.sleep(5)
+    try:
+        print("Insert user name")
+        self.page.fill("#username", self.lectio_user)
+        print("Insert password")
+        self.page.fill("#password", self.lectio_password)
+        print("Clicking the submit button")
+        self.page.click("#m_Content_submitbtn2")
+        print("Submit button clicked")
+        time.sleep(5)
 
-            if self.applitools_is_active:
-                self.eyes.check_window("Check to see if Lectio logins to home page")
+        if self.applitools_is_active:
+            self.eyes.check_window("Check to see if Lectio logins to home page")
 
-            print(f"Expecting to continue to main user page. user: {self.lectio_user}")
-            expect(self.page).to_have_title(f".*{self.lectio_user}.*") 
-            print("Confirmed that flow has arrived on main user page")
-        except Exception as e:
-            print("Error logging in")
-            print(self.page.title)
-            print(e)
-            return False
-        return True
+        print(f"Expecting to continue to main user page. user: {self.lectio_user}")
+        actual_title = self.page.title()
+        if self.lectio_user not in actual_title:
+            raise AssertionError(f"Expected user '{self.lectio_user}' in title but got '{actual_title}'")
+        print("Confirmed that flow has arrived on the main user page")
+    except Exception as e:
+        print("Error logging in")
+        print(self.page.title())
+        print(e)
+        return False
+    return True
+
 
     def navigate_to_messages(self):
         self.page.goto(f"https://www.lectio.dk/lectio/234/beskeder2.aspx")
