@@ -1,5 +1,5 @@
-import csv
 import os
+import csv
 from datetime import datetime
 from enum import Enum
 
@@ -11,17 +11,14 @@ class LogLevel(str, Enum):
     ERROR = "ERROR"
 
 def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver: str, description: str):
-    """
-    Saves a line of log info to a CSV file.
-    Format: timestamp, log level, task id, receiver, description
-    """
+    # Make sure the directory exists
+    dir_name = os.path.dirname(LOG_FILE_PATH)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
 
-    # Ensure directory or file exists
     file_exists = os.path.isfile(LOG_FILE_PATH)
-
     with open(LOG_FILE_PATH, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        # if file didn't exist, write a header row
         if not file_exists:
             writer.writerow(["timestamp", "log_level", "task_id", "receiver", "description"])
 
