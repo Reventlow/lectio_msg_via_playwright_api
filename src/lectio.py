@@ -60,6 +60,7 @@ class LectioBot:
 
     def login_to_lectio(self):
         login_url = f"https://www.lectio.dk/lectio/{self.school_id}/login.aspx?prevurl=default.aspx&type=brugernavn"
+        print("Accessing webpage: " + login_url)
 
         try:
             self.page.goto(login_url)
@@ -67,10 +68,10 @@ class LectioBot:
                 self.eyes.check_window("Lectio Login page")
             locator = self.page.locator('.maintitle')
             expect(locator).to_contain_text("Lectio Log ind")
+            print("Login page found")
         except Exception as e:
             print(e)
             print(traceback.format_exc())
-            sys.exit(1)
             return False
 
         try:
