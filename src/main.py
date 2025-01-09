@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from .tasks import send_lectio_msg
 
-LOG_FILE_PATH = "logs.csv"
+LOG_FILE_PATH = "/app/src/logs.csv"
 
 app = FastAPI(
     title="Lectio Message Sender",
