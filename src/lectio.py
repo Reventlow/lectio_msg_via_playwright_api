@@ -75,15 +75,21 @@ class LectioBot:
             return False
 
         try:
+            print("Insert user name")
             self.page.fill("#username", self.lectio_user)
+            print("Insert passsword")
             self.page.fill("#password", self.lectio_password)
+            print("Clicking the submit button")
             self.page.click("#m_Content_submitbtn2")
+            print("Submit button clicked")
             time.sleep(5)
 
             if self.applitools_is_active:
                 self.eyes.check_window("Check to see if Lectio logins to home page")
-                
+
+            print("Expecting to continue to main user page")
             expect(self.page).to_have_title(lambda title: self.lectio_user in title)
+            print("Confirmed that flow has arrived on main user page")
         except Exception as e:
             print("Error logging in")
             print(e)
