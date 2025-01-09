@@ -87,11 +87,12 @@ class LectioBot:
             if self.applitools_is_active:
                 self.eyes.check_window("Check to see if Lectio logins to home page")
 
-            print("Expecting to continue to main user page")
+            print(f"Expecting to continue to main user page. user: {self.lectio_user}")
             expect(self.page).to_have_title(lambda title: self.lectio_user in title)
             print("Confirmed that flow has arrived on main user page")
         except Exception as e:
             print("Error logging in")
+            print(self.page.title)
             print(e)
             return False
         return True
