@@ -32,6 +32,34 @@ def health_check():
     """
     return {"status": "ok", "timestamp": datetime.now()}
 
+@app.get("/workers", tags=["Workers"])
+def get_workers_status():
+    """
+    Ping the Celery workers to see which are alive.
+    Returns a dictionary of {worker_name: 'pong'} if they're up.
+    """
+    insp = celery_app.control.inspect()
+
+    # Ping all workers
+    ping_result = insp.ping()
+
+    if not ping_result:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "No workers found or unable to connect",
+                "timestamp": str(datetime.now())
+            }
+        )
+
+    # If there is a result, it should be something like:
+    # {"celery@workerhostname": {"ok": "pong"}}
+    return {
+        "status": "Workers responding",
+        "timestamp": str(datetime.now()),
+        "workers": ping_result
+    }
+
 
 @app.post("/send-message", tags=["Messages"])
 def api_send_message(request: MessageRequest):
