@@ -10,8 +10,9 @@ Dette projekt giver mulighed for at sende beskeder via Lectio's hjemmeside ved h
 4. [Kørsel med Docker Compose](#kørsel-med-docker-compose)  
 5. [Brug af API’et](#brug-af-apiet)  
 6. [Test](#test)  
-7. [Fejlfinding](#fejlfinding)  
-8. [Licens](#licens)
+7. [Live Log View (Web)](#live-log-view-web)
+8. [Fejlfinding](#fejlfinding)  
+9. [Licens](#licens)
 
 ---
 
