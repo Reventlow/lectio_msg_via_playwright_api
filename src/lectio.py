@@ -82,8 +82,8 @@ class LectioBot:
 
             if self.applitools_is_active:
                 self.eyes.check_window("Check to see if Lectio logins to home page")
-            locator = self.page.locator('.ls-user-name')
-            expect(locator).to_contain_text(self.lectio_user)
+                
+            expect(page).to_have_title(lambda title: self.lectio_user in title)
         except Exception as e:
             print("Error logging in")
             print(e)
