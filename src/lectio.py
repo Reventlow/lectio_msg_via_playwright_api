@@ -88,7 +88,7 @@ class LectioBot:
                 self.eyes.check_window("Check to see if Lectio logins to home page")
 
             print(f"Expecting to continue to main user page. user: {self.lectio_user}")
-            expect(self.page).to_have_title(lambda title: self.lectio_user in title)
+            expect(self.page).to_have_title(f".*{self.lectio_user}.*") 
             print("Confirmed that flow has arrived on main user page")
         except Exception as e:
             print("Error logging in")
@@ -119,6 +119,7 @@ class LectioBot:
 
         # Attempt to click the recipient; if it fails, log and raise an error
         try:
+            self.page.wait_for_selector(f"text={send_to}", timeout=60000)  # Wait for up to 60 seconds
             self.page.click(f"text={send_to}")
         except Exception as e:
             # Log the error that the recipient was not found
