@@ -77,6 +77,7 @@ class LectioBot:
             self.page.fill("#username", self.lectio_user)
             self.page.fill("#password", self.lectio_password)
             self.page.click("#m_Content_submitbtn2")
+            time.sleep(5)
 
             if self.applitools_is_active:
                 self.eyes.check_window("Check to see if Lectio logins to home page")
