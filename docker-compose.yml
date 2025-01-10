@@ -22,6 +22,8 @@ services:
     container_name: lectio_celery_worker
     image: robounord/lectio_msg_playwright_worker:1.24
     command: celery -A src.tasks.celery_app worker --loglevel=INFO --concurrency=${WORKER_REPLICAS}
+    volumes:
+      - /home/robo/docker-volumes/lectio-msg-playwright-api/logs/:/app/src/logs/
     environment:
       TZ: Europe/Copenhagen
       APPLITOOLS_IS_ACTIVE: ${APPLITOOLS_IS_ACTIVE}
