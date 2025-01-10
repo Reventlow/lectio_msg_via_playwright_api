@@ -42,12 +42,13 @@ services:
   celery_flower:
     image: mher/flower:2.0
     container_name: lectio_flower
-    command:
-    - --broker=redis://redis:6379/0
+    entrypoint: [ "/usr/local/bin/flower" ]
+    command: [ "--broker=redis://redis:6379/0" ]
     environment:
       TZ: Europe/Copenhagen
     ports:
-    - 5555:5555
+      - "5555:5555"
     depends_on:
-    - redis
-    - lectio_worker
+      - redis
+      - lectio_worker
+
