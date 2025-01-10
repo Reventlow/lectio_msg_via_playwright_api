@@ -40,7 +40,7 @@ services:
     ports:
     - 6379:6379
   celery_flower:
-    image: mher/flower:latest
+    image: mher/flower:2.0
     container_name: lectio_flower
     command: flower --broker=redis://redis:6379/0
     environment:
