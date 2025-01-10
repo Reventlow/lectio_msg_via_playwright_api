@@ -1,11 +1,10 @@
-# app/tasks.py
+# tasks.py
 
 from celery import Celery
 from datetime import datetime
 from .logs import log_event, LogLevel
 from .lectio import LectioBot
 from .import_env import get_env_variable
-
 
 CELERY_BROKER_URL = get_env_variable("CELERY_BROKER_URL") or "redis://redis:6379/0"
 CELERY_BACKEND_URL = get_env_variable("CELERY_BACKEND_URL") or "redis://redis:6379/1"
@@ -33,21 +32,21 @@ def send_lectio_msg(
     can_be_replied: bool
 ):
     """
-    Celery task to send a message via Lectio, now using credentials passed from the API.
+    Celery task to send a message via Lectio using the full-flow retry approach.
     """
     task_id = self.request.id  # unique Celery task identifier
 
-    # Log start
+    # Log that we are starting
     log_event(
         timestamp=datetime.now(),
         level=LogLevel.INFO,
         task_id=task_id,
         receiver=send_to,
-        description=f"Starting to send Lectio message to {send_to}"
+        description=f"Starting to send Lectio message to {send_to} (full-flow retry)."
     )
 
     try:
-        # Initialize the LectioBot with user-supplied credentials
+        # Create a LectioBot instance with user-supplied credentials
         lectio_session = LectioBot(
             school_id=lectio_school_id,
             lectio_user=lectio_user,
@@ -58,21 +57,17 @@ def send_lectio_msg(
             applitools_app_name='lectio_msg_sender',
             applitools_test_name=f'Send msg at {datetime.now()}'
         )
-        lectio_session.start_playwright()
-        lectio_session.login_to_lectio()
-        lectio_session.navigate_to_messages()
 
-        # Send the message
-        lectio_session.send_message(
+        # Instead of calling login/navigate/send individually,
+        # we call the new method that does the entire flow with multi-retries.
+        lectio_session.send_message_with_full_retry(
             send_to=send_to,
             subject=subject,
             msg=message,
-            this_msg_can_be_replied=can_be_replied
+            can_be_replied=can_be_replied
         )
 
-        lectio_session.stop_playwright()
-
-        # Log success
+        # If we get here, the flow eventually succeeded
         log_event(
             timestamp=datetime.now(),
             level=LogLevel.SUCCESS,
@@ -82,12 +77,12 @@ def send_lectio_msg(
         )
 
     except Exception as e:
-        # Log error
+        # If the flow fails after all retries, we log an error
         log_event(
             timestamp=datetime.now(),
             level=LogLevel.ERROR,
             task_id=task_id,
             receiver=send_to,
-            description=f"Error sending message: {str(e)}"
+            description=f"Error sending message (full-flow): {str(e)}"
         )
-        raise e  # re-raise so Celery marks the task as failed
+        raise e  # re-raise so Celery marks the task as FAILED
