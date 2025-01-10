@@ -42,8 +42,7 @@ services:
   celery_flower:
     image: mher/flower:2.0
     container_name: lectio_flower
-    command:
-    - --broker=redis://redis:6379/0
+    command: [ "--broker=redis://redis:6379/0" ]
     environment:
       TZ: Europe/Copenhagen
     ports:
