@@ -46,7 +46,7 @@ services:
       flower --broker=redis://redis:6379/0
     environment:
       TZ: Europe/Copenhagen
-      FLOWER_BASIC_AUTH: ${FLOWER_USER}:${FLOWER_PASSWORD}
+      #FLOWER_BASIC_AUTH: ${FLOWER_USER}:${FLOWER_PASSWORD}
     ports:
       - "5555:5555"
     depends_on:
