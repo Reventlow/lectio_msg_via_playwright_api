@@ -63,6 +63,7 @@ def send_lectio_msg(
         lectio_session.send_message_with_full_retry(
             send_to=send_to,
             subject=subject,
+            task_id=task_id,
             msg=message,
             can_be_replied=can_be_replied
         )

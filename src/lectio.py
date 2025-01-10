@@ -208,7 +208,7 @@ class LectioBot:
 
         return True
 
-    def send_message_with_full_retry(self, send_to: str, subject: str, msg: str, can_be_replied: bool) -> bool:
+    def send_message_with_full_retry(self, send_to: str, subject: str, task_id: str, msg: str, can_be_replied: bool) -> bool:
         """
         Retries the entire flow (start browser, login, navigate, send) up to 20 times.
         If after 20 attempts it still fails, logs an error and raises an exception.
@@ -244,7 +244,7 @@ class LectioBot:
                     log_event(
                         timestamp=datetime.now(),
                         level=LogLevel.ERROR,
-                        task_id="N/A",
+                        task_id=task_id,
                         receiver=send_to,
                         description=(
                             f"Failed entire send flow after {MAX_FLOW_RETRIES} attempts. "
@@ -257,7 +257,7 @@ class LectioBot:
                     log_event(
                         timestamp=datetime.now(),
                         level=LogLevel.INFO,
-                        task_id="N/A",
+                        task_id=task_id,
                         receiver=send_to,
                         description=(
                             f"Flow attempt {attempt}/{MAX_FLOW_RETRIES} failed with error: {e}. "
