@@ -122,9 +122,6 @@ class LectioBot:
 
         # Attempt to click the recipient; if it fails, log and raise an error
         try:
-            # self.page.wait_for_selector("text=RPA øh", timeout=60000, state="visible")
-            #self.page.wait_for_selector("xpath=//*[contains(text(), 'RPA øh')]", timeout=60000)
-
             self.page.click(f"text={send_to}")
         except Exception as e:
             # Log the error that the recipient was not found
