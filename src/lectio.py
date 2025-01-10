@@ -117,8 +117,8 @@ class LectioBot:
 
         # Fill out the send-to field
         to_field_locator = self.page.locator("#s_m_Content_Content_MessageThreadCtrl_addRecipientDD_inp")
-        to_field_locator.fill(send_to)
-        time.sleep(5)
+        to_field_locator.type(send_to)
+        time.sleep(2)
 
         # Attempt to click the recipient; if it fails, log and raise an error
         try:
