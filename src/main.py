@@ -7,7 +7,7 @@ import os
 
 from .tasks import send_lectio_msg
 
-LOG_FILE_PATH = "logs.csv"
+LOG_FILE_PATH = "/app/src/logs/logs.csv"
 
 app = FastAPI(
     title="Lectio Message Sender",
@@ -16,12 +16,12 @@ app = FastAPI(
 )
 
 class MessageRequest(BaseModel):
-    # Lectio-kontooplysninger, der nu sendes via API:
+    # Lectio login info:
     lectio_school_id: str
     lectio_user: str
     lectio_password: str
 
-    # Beskeddetaljer:
+    # Message details:
     send_to: str
     subject: str
     body: str
@@ -30,15 +30,14 @@ class MessageRequest(BaseModel):
 @app.get("/", tags=["Health"])
 def health_check():
     """
-    Simpelt health-check endpoint.
+    Simpel health check endpoint.
     """
     return {"status": "ok", "timestamp": datetime.now()}
 
 @app.post("/send-message", tags=["Messages"])
 def api_send_message(request: MessageRequest):
     """
-    Sender en Lectio-besked med de angivne login-oplysninger og beskeddetaljer.
-    Anvend Celery i baggrunden.
+    Sendes asynkront via Celery-task.
     """
     task = send_lectio_msg.delay(
         lectio_school_id=request.lectio_school_id,
@@ -54,13 +53,13 @@ def api_send_message(request: MessageRequest):
 @app.get("/logs", response_class=HTMLResponse, tags=["Logs"])
 def get_logs_pretty():
     """
-    Læser CSV-logfilen og returnerer en pæn Bootstrap-tabel.
-    Viser nyeste log først, log_level er en 'knap', og skifter baggrundsfarve for hver række.
+    Reads the log file and returns an HTML table with log entries.
+    Uses Bootstrap for styling.
     """
     if not os.path.exists(LOG_FILE_PATH):
         return "<h3>Ingen logfil fundet.</h3>"
 
-    # Læs hele CSV-filen
+    # Read log file
     with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
         reader = csv.reader(f)
         rows = list(reader)
@@ -68,14 +67,14 @@ def get_logs_pretty():
     if len(rows) < 2:
         return "<h3>Logfilen er tom eller indeholder kun en header.</h3>"
 
-    # Første række antages at være header
+    # First row is header, rest is data
     header = rows[0]
     data_rows = rows[1:]
 
-    # For at vise nyeste log først, vend rækkefølgen
+    # Reverse data rows so newest entries are at the top
     data_rows.reverse()
 
-    # Funktion til at mappe log level -> Bootstrap button classes
+    # Function to get Bootstrap button class based on log level
     def get_btn_class(level: str) -> str:
         level_upper = level.upper()
         if level_upper == "SUCCESS":
@@ -87,8 +86,8 @@ def get_logs_pretty():
         else:
             return "btn btn-secondary btn-sm"
 
-    # Byg table head (med sort baggrund + hvid tekst)
-    # NB: Vi bruger Bootstrap classes på thead for at få styling
+    # Build table header
+    # We use Bootstrap classes for styling
     table_header_html = "".join(f"<th>{col}</th>" for col in header)
     table_header = f"""
       <thead class="bg-dark text-white">
@@ -96,17 +95,17 @@ def get_logs_pretty():
       </thead>
     """
 
-    # Byg body-rows
+    # Build table body
     table_body = ""
     for row in data_rows:
-        # row forventes at være: [timestamp, log_level, task_id, receiver, description]
+        # row = [timestamp, log_level, task_id, receiver, description]
         timestamp, log_level, task_id, receiver, description = row
 
-        # Udskift log_level-cellen med en "knap"
+        # Replace log level with Bootstrap button
         btn_class = get_btn_class(log_level)
         log_level_btn_html = f"<button class='{btn_class}' disabled>{log_level}</button>"
 
-        # Byg HTML for hver celle
+        # Build row HTML
         row_html = f"""
           <td>{timestamp}</td>
           <td>{log_level_btn_html}</td>
@@ -116,10 +115,10 @@ def get_logs_pretty():
         """
         table_body += f"<tr>{row_html}</tr>"
 
-    # Indsæt body i <tbody> og brug Bootstrap .table-striped til at skifte baggrund
+    # Insert table body into table tags
     table_body = f"<tbody>{table_body}</tbody>"
 
-    # Byg endeligt HTML-indhold med Bootstrap
+    # Build full HTML content
     html_content = f"""
     <html>
     <head>
