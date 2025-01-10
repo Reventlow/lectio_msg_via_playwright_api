@@ -53,13 +53,12 @@ def api_send_message(request: MessageRequest):
 @app.get("/logs", response_class=HTMLResponse, tags=["Logs"])
 def get_logs_pretty():
     """
-    Reads the log file and returns an HTML table with log entries.
-    Uses Bootstrap for styling.
+    Reads the CSV log file and returns the exact Bootstrap-based HTML snippet,
+    showing newest entries first.
     """
     if not os.path.exists(LOG_FILE_PATH):
         return "<h3>Ingen logfil fundet.</h3>"
 
-    # Read log file
     with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
         reader = csv.reader(f)
         rows = list(reader)
@@ -67,80 +66,67 @@ def get_logs_pretty():
     if len(rows) < 2:
         return "<h3>Logfilen er tom eller indeholder kun en header.</h3>"
 
-    # First row is header, rest is data
+    # Header row (assumed columns: timestamp, log_level, task_id, receiver, description)
     header = rows[0]
     data_rows = rows[1:]
 
-    # Reverse data rows so newest entries are at the top
+    # Show newest logs first
     data_rows.reverse()
 
-    # Function to get Bootstrap button class based on log level
-    def get_btn_class(level: str) -> str:
+    # Helper to pick span class based on log level
+    def level_span(level: str) -> str:
         level_upper = level.upper()
         if level_upper == "SUCCESS":
-            return "btn btn-success btn-sm"
+            return f"<span class='btn btn-success btn-sm'>{level}</span>"
         elif level_upper == "ERROR":
-            return "btn btn-danger btn-sm"
+            return f"<span class='btn btn-danger btn-sm'>{level}</span>"
         elif level_upper == "INFO":
-            return "btn btn-info btn-sm"
+            return f"<span class='btn btn-info btn-sm'>{level}</span>"
         else:
-            return "btn btn-secondary btn-sm"
+            return f"<span class='btn btn-secondary btn-sm'>{level}</span>"
 
-    # Build table header
-    # We use Bootstrap classes for styling
-    table_header_html = "".join(f"<th>{col}</th>" for col in header)
-    table_header = f"""
-      <thead class="bg-dark text-white">
-        <tr>{table_header_html}</tr>
-      </thead>
-    """
-
-    # Build table body
-    table_body = ""
+    # Build each <tr> in the table body
+    tbody_rows = ""
     for row in data_rows:
-        # row = [timestamp, log_level, task_id, receiver, description]
+        # row is expected to be [timestamp, log_level, task_id, receiver, description]
         timestamp, log_level, task_id, receiver, description = row
 
-        # Replace log level with Bootstrap button
-        btn_class = get_btn_class(log_level)
-        log_level_btn_html = f"<button class='{btn_class}' disabled>{log_level}</button>"
-
-        # Build row HTML
-        row_html = f"""
-          <td>{timestamp}</td>
-          <td>{log_level_btn_html}</td>
-          <td>{task_id}</td>
-          <td>{receiver}</td>
-          <td>{description}</td>
+        tbody_rows += f"""
+          <tr>
+            <td>{timestamp}</td>
+            <td>{level_span(log_level)}</td>
+            <td>{task_id}</td>
+            <td>{receiver}</td>
+            <td>{description}</td>
+          </tr>
         """
-        table_body += f"<tr>{row_html}</tr>"
 
-    # Insert table body into table tags
-    table_body = f"<tbody>{table_body}</tbody>"
-
-    # Build full HTML content
+    # Now build the final HTML snippet exactly as given, inserting the dynamic rows
     html_content = f"""
-    <html>
-    <head>
-      <meta charset="utf-8"/>
-      <title>Lectio Message Logs</title>
-      <!-- Bootstrap CSS -->
-      <link
-        rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-        integrity="sha384-ENjdO4Dr2bkBIFxQpeoKl2CWynvZp1C83uZFrG7c4I3z9IGxU0NJoBDevdvuLGfn"
-        crossorigin="anonymous"
-      >
-    </head>
-    <body class="p-4">
-      <div class="container">
-        <h2 class="mb-4">Lectio Message Logs</h2>
-        <table class="table table-striped table-bordered table-hover">
-          {table_header}
-          {table_body}
-        </table>
-      </div>
-    </body>
-    </html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Lectio Message Logs</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+</head>
+<body class="p-4">
+  <div class="container">
+    <h2 class="mb-4">Lectio Message Logs</h2>
+    <table class="table table-striped table-bordered table-hover">
+      <thead class="bg-dark text-white">
+        <tr><th>timestamp</th><th>log_level</th><th>task_id</th><th>receiver</th><th>description</th></tr>
+      </thead>
+      <tbody>
+        {tbody_rows}
+      </tbody>
+    </table>
+  </div>
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4JQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
+</body>
+</html>
     """
     return html_content
