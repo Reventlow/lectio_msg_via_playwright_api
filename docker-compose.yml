@@ -3,7 +3,7 @@ services:
   lectio_api:
     build: .
     container_name: lectio_api
-    image: robounord/lectio_msg_playwright_api:1.29
+    image: robounord/lectio_msg_playwright_api:1.30
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000
     volumes:
     - /home/robo/docker-volumes/lectio-msg-playwright-api/logs/:/app/src/logs/
@@ -20,7 +20,7 @@ services:
   lectio_worker:
     build: .
     container_name: lectio_celery_worker
-    image: robounord/lectio_msg_playwright_worker:1.29
+    image: robounord/lectio_msg_playwright_worker:1.30
     command: celery -A src.tasks.celery_app worker --loglevel=INFO --concurrency=${WORKER_REPLICAS}
     volumes:
     - /home/robo/docker-volumes/lectio-msg-playwright-api/logs/:/app/src/logs/
