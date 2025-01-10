@@ -52,10 +52,6 @@ def api_send_message(request: MessageRequest):
 
 @app.get("/logs", response_class=HTMLResponse, tags=["Logs"])
 def get_logs_pretty():
-    """
-    Reads the CSV log file and returns the exact Bootstrap-based HTML snippet,
-    showing newest entries first.
-    """
     if not os.path.exists(LOG_FILE_PATH):
         return "<h3>Ingen logfil fundet.</h3>"
 
@@ -66,14 +62,14 @@ def get_logs_pretty():
     if len(rows) < 2:
         return "<h3>Logfilen er tom eller indeholder kun en header.</h3>"
 
-    # Header row (assumed columns: timestamp, log_level, task_id, receiver, description)
+    # Expect columns: timestamp, log_level, task_id, receiver, description
+    # But row[4] may have commas => row might be > 5 columns
     header = rows[0]
     data_rows = rows[1:]
 
-    # Show newest logs first
+    # Reverse for newest first
     data_rows.reverse()
 
-    # Helper to pick span class based on log level
     def level_span(level: str) -> str:
         level_upper = level.upper()
         if level_upper == "SUCCESS":
@@ -82,15 +78,28 @@ def get_logs_pretty():
             return f"<span class='btn btn-danger btn-sm'>{level}</span>"
         elif level_upper == "INFO":
             return f"<span class='btn btn-info btn-sm'>{level}</span>"
-        else:
-            return f"<span class='btn btn-secondary btn-sm'>{level}</span>"
+        return f"<span class='btn btn-secondary btn-sm'>{level}</span>"
 
-    # Build each <tr> in the table body
     tbody_rows = ""
     for row in data_rows:
-        # row is expected to be [timestamp, log_level, task_id, receiver, description]
-        timestamp, log_level, task_id, receiver, description = row
+        # Safely unpack the first four columns
+        if len(row) < 4:
+            # If a row doesn't even have enough columns, skip or handle differently
+            continue
 
+        timestamp = row[0]
+        log_level = row[1]
+        task_id = row[2]
+        receiver = row[3]
+
+        # Everything else is combined into description
+        if len(row) > 4:
+            # Merge remaining columns into one string
+            description = ",".join(row[4:])
+        else:
+            description = ""
+
+        # Build HTML row
         tbody_rows += f"""
           <tr>
             <td>{timestamp}</td>
