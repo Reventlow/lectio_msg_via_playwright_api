@@ -3,7 +3,7 @@ services:
   lectio_api:
     build: .
     container_name: lectio_api
-    image: robounord/lectio_msg_playwright_api:1.38
+    image: robounord/lectio_msg_playwright_api:1.39
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000
     volumes:
     - /home/robo/docker-volumes/lectio-msg-playwright-api/logs/:/app/src/logs/
@@ -20,7 +20,7 @@ services:
   lectio_worker:
     build: .
     container_name: lectio_celery_worker
-    image: robounord/lectio_msg_playwright_worker:1.38
+    image: robounord/lectio_msg_playwright_worker:1.39
     command: celery -A src.tasks.celery_app worker --loglevel=INFO --concurrency=${WORKER_REPLICAS}
     volumes:
     - /home/robo/docker-volumes/lectio-msg-playwright-api/logs/:/app/src/logs/
@@ -42,13 +42,12 @@ services:
   celery_flower:
     image: mher/flower:2.0
     container_name: lectio_flower
-    # Let the image's default entrypoint = "flower"
-    # So we only pass the extra arguments
-    command: [ "--broker=redis://redis:6379/0" ]
+    command:
+    - --broker=redis://redis:6379/0
     environment:
       TZ: Europe/Copenhagen
     ports:
-      - "5555:5555"
+    - 5555:5555
     depends_on:
-      - redis
-      - lectio_worker
+    - redis
+    - lectio_worker
