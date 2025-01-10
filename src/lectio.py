@@ -115,25 +115,55 @@ class LectioBot:
             self.eyes.check_window("Check to see if 'Ny besked' page is loaded")
         expect(locator, 'end')
 
-        # Fill out the send-to field
+        # Retry logic for finding/clicking recipient
         to_field_locator = self.page.locator("#s_m_Content_Content_MessageThreadCtrl_addRecipientDD_inp")
-        to_field_locator.type(send_to)
-        time.sleep(2)
+        MAX_RETRIES = 20
+        recipient_clicked = False
 
-        # Attempt to click the recipient; if it fails, log and raise an error
-        try:
-            self.page.click(f"text={send_to}")
-        except Exception as e:
-            # Log the error that the recipient was not found
-            log_event(
-                timestamp=datetime.now(),
-                level=LogLevel.ERROR,
-                task_id="N/A",  # Or pass a real task_id if you have one
-                receiver=send_to,
-                description=f"Recipient '{send_to}' not found or not clickable in Lectio. Original error: {str(e)}"
-            )
-            # Raise an exception to stop further processing
-            raise
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                # Clear the field
+                to_field_locator.fill("")
+                time.sleep(0.5)
+
+                # Type the recipient's name again
+                to_field_locator.type(send_to)
+                time.sleep(2)
+
+                # Attempt to click the matching text
+                self.page.click(f"text={send_to}")
+                # If we get here, the click succeeded
+                recipient_clicked = True
+                break
+            except Exception as e:
+                # If we haven't reached the max tries, keep looping; otherwise log + raise
+                if attempt == MAX_RETRIES:
+                    log_event(
+                        timestamp=datetime.now(),
+                        level=LogLevel.ERROR,
+                        task_id="N/A",
+                        receiver=send_to,
+                        description=(
+                            f"Tried {MAX_RETRIES} times to find/click recipient '{send_to}' but failed. "
+                            f"Last error: {str(e)}"
+                        )
+                    )
+                    raise  # Stop the flow entirely
+                else:
+                    log_event(
+                        timestamp=datetime.now(),
+                        level=LogLevel.INFO,
+                        task_id="N/A",
+                        receiver=send_to,
+                        description=(
+                            f"After {MAX_RETRIES} tries  to find/click recipient '{send_to}' the recpient was found. "
+                        )
+                    )
+                    pass
+
+        # If we somehow never clicked the recipient, we should stop. (Shouldn't happen unless we raised above.)
+        if not recipient_clicked:
+            return False
 
         # Fill out the subject field
         subject_field_locator = self.page.locator(
