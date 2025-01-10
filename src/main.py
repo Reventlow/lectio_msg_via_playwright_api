@@ -1,7 +1,7 @@
 import csv
 import os
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from datetime import datetime
 from .tasks import send_lectio_msg
@@ -32,7 +32,8 @@ def health_check():
     """
     A simple health-check endpoint.
     """
-    return {"status": "ok", "timestamp": datetime.now()}
+    return {"status": "ok", "timestamp": str(datetime.now())}
+
 
 @app.get("/workers", tags=["Workers"])
 def get_workers_status():
@@ -54,8 +55,7 @@ def get_workers_status():
             }
         )
 
-    # If there is a result, it should be something like:
-    # {"celery@workerhostname": {"ok": "pong"}}
+    # Example result: {"celery@workerhostname": {"ok": "pong"}}
     return {
         "status": "Workers responding",
         "timestamp": str(datetime.now()),
@@ -93,7 +93,6 @@ def get_logs_pretty():
         <h3 style="margin:20px;">Ingen logfil fundet.</h3>
         """
 
-    # Read all CSV rows
     with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
         reader = csv.reader(f)
         rows = list(reader)
@@ -103,48 +102,45 @@ def get_logs_pretty():
         <h3 style="margin:20px;">Logfilen er tom eller indeholder kun en header.</h3>
         """
 
-    # First row is assumed to be the header: ["timestamp", "log_level", "task_id", "receiver", "description", ...]
+    # First row is assumed to be the header
     header = rows[0]
     data_rows = rows[1:]
 
-    # Reverse data_rows so the newest entries appear first
+    # Reverse so newest entries appear first
     data_rows.reverse()
 
-    # We can define a helper to map log levels to Bootstrap classes
     def get_level_button(level_text: str) -> str:
+        # Convert to uppercase for matching
         level_text_upper = level_text.upper()
+
+        # Map level to Bootstrap button classes
+        # Add text-white to ensure the text is visible on colored buttons
         if level_text_upper == "SUCCESS":
-            btn_class = "btn-success"
+            btn_class = "btn-success text-white"
         elif level_text_upper == "ERROR":
-            btn_class = "btn-danger"
+            btn_class = "btn-danger text-white"
         elif level_text_upper == "INFO":
-            btn_class = "btn-info"
+            # Info is a lighter blue, so black text is more readable
+            btn_class = "btn-info text-dark"
         else:
-            btn_class = "btn-secondary"
+            # Default to secondary (gray)
+            btn_class = "btn-secondary text-white"
+
         return f'<button class="btn {btn_class} btn-sm" disabled>{level_text}</button>'
 
     # Build table header
     table_header = "".join(f"<th>{col}</th>" for col in header)
 
-    # Build table body rows
+    # Build table body
     table_body = ""
     for row in data_rows:
-        # row order assumed: [timestamp, log_level, task_id, receiver, description, ...]
-        # We specifically style column #1 (log_level) with a Bootstrap button
+        # Example row format: [timestamp, log_level, task_id, receiver, description]
         if len(row) >= 2:
-            # row[1] is log_level
             level_html = get_level_button(row[1])
-            # Rebuild the row, replacing row[1] with our custom HTML
-            new_row = [
-                row[0],
-                level_html,      # replaced log_level text with button
-                *row[2:]         # task_id, receiver, description, etc.
-            ]
+            new_row = [row[0], level_html, *row[2:]]  # replace the log_level text with the button
         else:
-            # If row doesn't have enough columns, just display raw
             new_row = row
 
-        # Build HTML <td> for each column
         row_html = "".join(f"<td>{col}</td>" for col in new_row)
         table_body += f"<tr>{row_html}</tr>"
 
