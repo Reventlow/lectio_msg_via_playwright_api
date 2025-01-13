@@ -13,6 +13,9 @@ services:
       APPLITOOLS_API_KEY: ${APPLITOOLS_API_KEY}
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_BACKEND_URL: redis://redis:6379/1
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
     - 8010:8000
     depends_on:
@@ -30,6 +33,9 @@ services:
       APPLITOOLS_API_KEY: ${APPLITOOLS_API_KEY}
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_BACKEND_URL: redis://redis:6379/1
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
     - redis
     deploy:
@@ -39,17 +45,12 @@ services:
     container_name: lectio_redis
     ports:
     - 6379:6379
-  celery_flower:
-    image: mher/flower:2.0
-    container_name: lectio_flower
-    entrypoint:
-    - /usr/local/bin/flower
-    command:
-    - --broker=redis://redis:6379/0
+  db:
+    image: postgres:15-alpine
+    container_name: lectio_postgres
     environment:
-      TZ: Europe/Copenhagen
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-    - 5555:5555
-    depends_on:
-    - redis
-    - lectio_worker
+      - "6010:5432"
