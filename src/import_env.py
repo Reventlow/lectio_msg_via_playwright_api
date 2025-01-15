@@ -5,7 +5,7 @@ from icecream import ic
 
 
 # function that first trys to get environment variables from .env file, if not found it will get them from the os
-def get_env_variable(var_name: str) -> str:
+def get_env_variable(var_name: str, default_value: str = None) -> str:
     try:
         return config(var_name)
     except KeyError:
