@@ -57,6 +57,6 @@ services:
     deploy:
       placement:
         constraints:
-        - node.hostname == un-vms-rpa-05
+          - node.hostname == ${NODE_HOSTNAME}
     volumes:
     - ${POSTGRES_VOLUME}:/var/lib/postgresql/data
