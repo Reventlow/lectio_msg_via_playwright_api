@@ -12,7 +12,7 @@ class LogLevel(str, Enum):
     ERROR = "ERROR"
 
 # We'll retrieve connection details from environment variables
-POSTGRES_HOST = get_env_variable("POSTGRES_HOST") or "localhost"
+POSTGRES_HOST = get_env_variable("POSTGRES_HOST") or "db"
 POSTGRES_DB = get_env_variable("POSTGRES_DB") or "logsdb"
 POSTGRES_USER = get_env_variable("POSTGRES_USER") or "myuser"
 POSTGRES_PASSWORD = get_env_variable("POSTGRES_PASSWORD") or "mypass"
