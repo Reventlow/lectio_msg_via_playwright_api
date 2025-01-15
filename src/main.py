@@ -1,11 +1,9 @@
-# main.py
-
 import psycopg
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List
+from asyncio import sleep
 from .tasks import send_lectio_msg
 from .logs import init_logs_table, get_connection
 
@@ -48,9 +46,6 @@ def api_send_message(request: MessageRequest):
 
 @app.get("/logs/by_task_id/{task_id}", tags=["Logs"])
 def get_logs_by_task_id(task_id: str):
-    """
-    Returns all log entries for a given task_id.
-    """
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -64,23 +59,20 @@ def get_logs_by_task_id(task_id: str):
     finally:
         conn.close()
 
-    results = []
-    for r in rows:
-        results.append({
-            "id": r[0],
-            "timestamp": r[1].isoformat() if r[1] else None,
-            "log_level": r[2],
-            "task_id": r[3],
-            "receiver": r[4],
-            "description": r[5]
-        })
-    return results
+    return [
+        {
+            "id": row[0],
+            "timestamp": row[1].isoformat() if row[1] else None,
+            "log_level": row[2],
+            "task_id": row[3],
+            "receiver": row[4],
+            "description": row[5]
+        }
+        for row in rows
+    ]
 
 @app.get("/logs/by_receiver/{receiver}", tags=["Logs"])
 def get_logs_by_receiver(receiver: str):
-    """
-    Returns all log entries for a given receiver.
-    """
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -94,24 +86,20 @@ def get_logs_by_receiver(receiver: str):
     finally:
         conn.close()
 
-    results = []
-    for r in rows:
-        results.append({
-            "id": r[0],
-            "timestamp": r[1].isoformat() if r[1] else None,
-            "log_level": r[2],
-            "task_id": r[3],
-            "receiver": r[4],
-            "description": r[5]
-        })
-    return results
+    return [
+        {
+            "id": row[0],
+            "timestamp": row[1].isoformat() if row[1] else None,
+            "log_level": row[2],
+            "task_id": row[3],
+            "receiver": row[4],
+            "description": row[5]
+        }
+        for row in rows
+    ]
 
 @app.get("/logs", response_class=HTMLResponse, tags=["Logs"])
 def get_logs_pretty():
-    """
-    Reads the logs from PostgreSQL and returns a Bootstrap-styled HTML table.
-    Shows newest entries first.
-    """
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -124,12 +112,11 @@ def get_logs_pretty():
     finally:
         conn.close()
 
-    # Build the <tbody> dynamically
     tbody_rows = ""
     for row in rows:
         ts, level, task_id, receiver, description = row
         timestamp_str = ts.isoformat() if ts else ""
-        level_span = log_level_as_span(level)  # We'll define a helper below
+        level_span = log_level_as_span(level)
 
         tbody_rows += f"""
           <tr>
@@ -141,7 +128,6 @@ def get_logs_pretty():
           </tr>
         """
 
-    # Build final HTML
     html_content = f"""
 <html>
 <head>
@@ -165,19 +151,120 @@ def get_logs_pretty():
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" 
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous">
   </script>
-  <!-- Optionally auto-refresh every 10 seconds -->
-  <!-- <script>
-    setTimeout(() => {{ window.location.reload(); }}, 10000);
-  </script> -->
 </body>
 </html>
     """
     return html_content
 
+@app.websocket("/ws/dashboard")
+async def websocket_dashboard(websocket: WebSocket):
+    await websocket.accept()
+    from celery import Celery
+    celery_app = Celery(broker="redis://redis:6379/0")
+    inspector = celery_app.control.inspect()
+
+    try:
+        while True:
+            active = inspector.active() or {}
+            reserved = inspector.reserved() or {}
+            stats = inspector.stats() or {}
+
+            workers_status = {}
+            for worker, info in stats.items():
+                workers_status[worker] = {
+                    "active_tasks": active.get(worker, []),
+                    "reserved_tasks": reserved.get(worker, []),
+                    "status": "Online"
+                }
+
+            queue_status = {
+                "scheduled": inspector.scheduled() or {},
+                "reserved": reserved,
+                "active": active,
+            }
+
+            await websocket.send_json({
+                "timestamp": datetime.now().isoformat(),
+                "workers": workers_status,
+                "queue": queue_status
+            })
+
+            await sleep(5)
+    except WebSocketDisconnect:
+        print("WebSocket disconnected")
+    except Exception as e:
+        print(f"Error in WebSocket: {e}")
+    finally:
+        await websocket.close()
+
+@app.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"])
+def get_dashboard():
+    html_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow: auto;
+            max-height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Dashboard</h1>
+
+    <div id="worker-status">
+        <h2>Worker Status</h2>
+        <pre id="worker-data">Loading...</pre>
+    </div>
+
+    <div id="queue-status">
+        <h2>Queue Status</h2>
+        <pre id="queue-data">Loading...</pre>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8000/ws/dashboard");
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const { timestamp, workers, queue } = data;
+
+            document.getElementById("worker-data").textContent = JSON.stringify(workers, null, 2);
+            document.getElementById("queue-data").textContent = JSON.stringify(queue, null, 2);
+        };
+
+        ws.onerror = (event) => {
+            console.error("WebSocket error:", event);
+            document.getElementById("worker-data").textContent = "Error fetching worker data.";
+            document.getElementById("queue-data").textContent = "Error fetching queue data.";
+        };
+
+        ws.onclose = () => {
+            console.log("WebSocket connection closed");
+            document.getElementById("worker-data").textContent = "WebSocket connection closed.";
+            document.getElementById("queue-data").textContent = "WebSocket connection closed.";
+        };
+    </script>
+</body>
+</html>
+    """
+    return HTMLResponse(content=html_content)
+
 def log_level_as_span(level_str: str) -> str:
-    """
-    Converts the log_level (e.g. SUCCESS, INFO, ERROR) into a colored <span>.
-    """
     level_upper = level_str.upper()
     if level_upper == "SUCCESS":
         return f"<span class='btn btn-success btn-sm'>{level_str}</span>"
