@@ -237,7 +237,7 @@ def get_dashboard():
     </div>
 
     <script>
-        const ws = new WebSocket("ws://localhost:8000/ws/dashboard");
+        const ws = new WebSocket("ws://lectio_api:8000/ws/dashboard");
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
