@@ -15,7 +15,7 @@ class LogLevel(str, Enum):
 POSTGRES_HOST = get_env_variable("POSTGRES_HOST", default_value="db")
 POSTGRES_DB = get_env_variable("POSTGRES_DB", default_value="logsdb")
 POSTGRES_USER = get_env_variable("POSTGRES_USER", default_value="myuser")
-POSTGRES_PASSWORD = get_env_variable("POSTGRES_PASSWORD", default_value="mypass"
+POSTGRES_PASSWORD = get_env_variable("POSTGRES_PASSWORD", default_value="mypass")
 
 def get_connection():
     return psycopg.connect(
