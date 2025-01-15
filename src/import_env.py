@@ -1,6 +1,6 @@
 import sys
 from os import getenv
-from decouple import config
+from decouple import config, UndefinedValueError
 from icecream import ic
 
 
@@ -8,10 +8,11 @@ from icecream import ic
 def get_env_variable(var_name: str, default_value: str = None) -> str:
     try:
         return config(var_name)
-    except KeyError:
+    except UndefinedValueError:
         if default_value is not None:
             return default_value
         raise
+    except KeyError:
         ic(f"KeyError : Environment variable {var_name} not found in .env file. Trying to get it from the os")
         try:
             ic(f"Trying to get environment variable {var_name} from the os")
