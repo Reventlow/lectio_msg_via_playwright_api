@@ -54,3 +54,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
     - 6010:5432
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == un-vms-rpa-05
+    volumes:
+      - ${POSTGRES_VOLUME}:/var/lib/postgresql/data
