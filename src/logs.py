@@ -12,10 +12,10 @@ class LogLevel(str, Enum):
     ERROR = "ERROR"
 
 # We'll retrieve connection details from environment variables
-POSTGRES_HOST = get_env_variable("POSTGRES_HOST") or "db"
-POSTGRES_DB = get_env_variable("POSTGRES_DB") or "logsdb"
-POSTGRES_USER = get_env_variable("POSTGRES_USER") or "myuser"
-POSTGRES_PASSWORD = get_env_variable("POSTGRES_PASSWORD") or "mypass"
+POSTGRES_HOST = get_env_variable("POSTGRES_HOST", default_value="db")
+POSTGRES_DB = get_env_variable("POSTGRES_DB", default_value="logsdb")
+POSTGRES_USER = get_env_variable("POSTGRES_USER", default_value="myuser")
+POSTGRES_PASSWORD = get_env_variable("POSTGRES_PASSWORD", default_value="mypass"
 
 def get_connection():
     return psycopg.connect(

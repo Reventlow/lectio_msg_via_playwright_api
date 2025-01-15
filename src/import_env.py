@@ -9,6 +9,9 @@ def get_env_variable(var_name: str) -> str:
     try:
         return config(var_name)
     except KeyError:
+        if default_value is not None:
+            return default_value
+        raise
         ic(f"KeyError : Environment variable {var_name} not found in .env file. Trying to get it from the os")
         try:
             ic(f"Trying to get environment variable {var_name} from the os")
