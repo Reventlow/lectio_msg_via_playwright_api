@@ -132,7 +132,7 @@ def get_logs_pretty():
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>Lectio Message Logs</title>
+  <title>Lectio API Message Logs</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" 
     integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 </head>
@@ -205,7 +205,7 @@ def get_dashboard():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Dashboard</title>
+    <title>LECTIO API Real-Time Dashboard</title>
     <style>
         body {
             font-family: Arial, sans-serif;
