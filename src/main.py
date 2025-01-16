@@ -138,7 +138,7 @@ def get_logs_pretty():
 </head>
 <body class="p-4">
   <div class="container">
-    <h2 class="mb-4">Lectio Message Logs</h2>
+    <h2 class="mb-4">Lectio API Message Logs</h2>
     <table class="table table-striped table-bordered table-hover">
       <thead class="bg-dark text-white">
         <tr><th>timestamp</th><th>log_level</th><th>task_id</th><th>receiver</th><th>description</th></tr>
@@ -224,7 +224,7 @@ def get_dashboard():
     </style>
 </head>
 <body>
-    <h1>Real-Time Dashboard</h1>
+    <h1>LECTIO API Real-Time Dashboard</h1>
 
     <div id="worker-status">
         <h2>Worker Status</h2>
