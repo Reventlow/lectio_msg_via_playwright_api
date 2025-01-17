@@ -11,7 +11,7 @@ import asyncio
 class LogLevel(str, Enum):
     SUCCESS = "SUCCESS"
     INFO = "INFO"
-    WARNING = "WARNING"  # New Warning Level
+    WARNING = "WARNING"
     ERROR = "ERROR"
 
 
@@ -152,6 +152,71 @@ async def log_event_general(timestamp: datetime, level: LogLevel, receiver: str,
     await log_event(timestamp, level, "N/A", receiver, description, pool_type=pool_type)
 
 
+async def fetch_logs_by_task_id(task_id: str):
+    """
+    Fetches logs associated with a specific task_id.
+
+    Args:
+        task_id (str): The Celery task ID.
+
+    Returns:
+        list: A list of log records.
+    """
+    conn = await get_connection(pool_type="fastapi")
+    async with conn.cursor() as cur:
+        await cur.execute("""
+            SELECT id, timestamp, log_level, task_id, receiver, description
+            FROM logs
+            WHERE task_id = %s
+            ORDER BY id DESC
+        """, (task_id,))
+        rows = await cur.fetchall()
+    await conn.close()
+    return rows
+
+
+async def fetch_logs_by_receiver(receiver: str):
+    """
+    Fetches logs associated with a specific receiver.
+
+    Args:
+        receiver (str): The receiver of the message.
+
+    Returns:
+        list: A list of log records.
+    """
+    conn = await get_connection(pool_type="fastapi")
+    async with conn.cursor() as cur:
+        await cur.execute("""
+            SELECT id, timestamp, log_level, task_id, receiver, description
+            FROM logs
+            WHERE receiver = %s
+            ORDER BY id DESC
+        """, (receiver,))
+        rows = await cur.fetchall()
+    await conn.close()
+    return rows
+
+
+async def fetch_all_logs():
+    """
+    Fetches all logs from the logs table.
+
+    Returns:
+        list: A list of all log records.
+    """
+    conn = await get_connection(pool_type="fastapi")
+    async with conn.cursor() as cur:
+        await cur.execute("""
+            SELECT timestamp, log_level, task_id, receiver, description
+            FROM logs
+            ORDER BY id DESC
+        """)
+        rows = await cur.fetchall()
+    await conn.close()
+    return rows
+
+
 def log_level_as_span(level_str: str) -> str:
     """
     Converts a log level string into an HTML span with appropriate styling.
@@ -168,7 +233,7 @@ def log_level_as_span(level_str: str) -> str:
     elif level_upper == "ERROR":
         return f"<span class='btn btn-danger btn-sm'>{level_str}</span>"
     elif level_upper == "WARNING":
-        return f"<span class='btn btn-warning btn-sm'>{level_str}</span>"  # New Styling for WARNING
+        return f"<span class='btn btn-warning btn-sm'>{level_str}</span>"
     elif level_upper == "INFO":
         return f"<span class='btn btn-info btn-sm'>{level_str}</span>"
     else:
