@@ -7,18 +7,15 @@ from enum import Enum
 from .import_env import get_env_variable
 import asyncio
 
-
 class LogLevel(str, Enum):
     SUCCESS = "SUCCESS"
     INFO = "INFO"
-    WARNING = "WARNING"
+    WARNING = "WARNING"  # New Warning Level
     ERROR = "ERROR"
-
 
 # Global variables for connection pools
 _fastapi_connection_pool = None
 _celery_connection_pool = None
-
 
 async def init_connection_pool(pool_type: str = "fastapi"):
     """
@@ -32,7 +29,6 @@ async def init_connection_pool(pool_type: str = "fastapi"):
     """
     global _fastapi_connection_pool, _celery_connection_pool
 
-    # Determine which pool to initialize
     if pool_type == "fastapi":
         if _fastapi_connection_pool is None:
             conninfo = construct_conninfo()
@@ -52,7 +48,6 @@ async def init_connection_pool(pool_type: str = "fastapi"):
     else:
         raise ValueError("Unsupported pool_type. Choose 'fastapi' or 'celery'.")
 
-
 def construct_conninfo() -> str:
     """
     Constructs the PostgreSQL connection string from environment variables.
@@ -68,28 +63,26 @@ def construct_conninfo() -> str:
 
     return f"host={POSTGRES_HOST} port={POSTGRES_PORT} dbname={POSTGRES_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD}"
 
-
-async def get_connection(pool_type: str = "fastapi") -> psycopg.AsyncConnection:
+async def get_connection(pool_type: str = "fastapi") -> AsyncConnectionPool:
     """
-    Retrieves a connection from the specified connection pool.
+    Retrieves the connection pool based on the pool type.
 
     Args:
         pool_type (str): Type of the pool to retrieve connection from. Should be either 'fastapi' or 'celery'.
 
     Returns:
-        psycopg.AsyncConnection: The database connection.
+        AsyncConnectionPool: The connection pool instance.
     """
     if pool_type == "fastapi":
         if _fastapi_connection_pool is None:
             await init_connection_pool("fastapi")
-        return await _fastapi_connection_pool.connection()
+        return _fastapi_connection_pool
     elif pool_type == "celery":
         if _celery_connection_pool is None:
             await init_connection_pool("celery")
-        return await _celery_connection_pool.connection()
+        return _celery_connection_pool
     else:
         raise ValueError("Unsupported pool_type. Choose 'fastapi' or 'celery'.")
-
 
 async def init_logs_table(pool_type: str = "fastapi"):
     """
@@ -98,24 +91,22 @@ async def init_logs_table(pool_type: str = "fastapi"):
     Args:
         pool_type (str): Type of the pool to use for the connection. 'fastapi' or 'celery'.
     """
-    conn = await get_connection(pool_type)
-    async with conn.cursor() as cur:
-        await cur.execute("""
-            CREATE TABLE IF NOT EXISTS logs (
-                id SERIAL PRIMARY KEY,
-                timestamp TIMESTAMP NOT NULL,
-                log_level VARCHAR(20) NOT NULL,
-                task_id VARCHAR(255),
-                receiver VARCHAR(255),
-                description TEXT
-            );
-        """)
-        await conn.commit()
-    await conn.close()
+    pool = await get_connection(pool_type)
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                CREATE TABLE IF NOT EXISTS logs (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP NOT NULL,
+                    log_level VARCHAR(20) NOT NULL,
+                    task_id VARCHAR(255),
+                    receiver VARCHAR(255),
+                    description TEXT
+                );
+            """)
+            await conn.commit()
 
-
-async def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver: str, description: str,
-                    pool_type: str = "fastapi"):
+async def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver: str, description: str, pool_type: str = "fastapi"):
     """
     Writes a log entry to the PostgreSQL database asynchronously.
 
@@ -127,18 +118,16 @@ async def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver
         description (str): The log description.
         pool_type (str): Type of the pool to use. 'fastapi' or 'celery'.
     """
-    conn = await get_connection(pool_type)
-    async with conn.cursor() as cur:
-        await cur.execute("""
-            INSERT INTO logs (timestamp, log_level, task_id, receiver, description)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (timestamp, level.value, task_id, receiver, description))
-        await conn.commit()
-    await conn.close()
+    pool = await get_connection(pool_type)
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                INSERT INTO logs (timestamp, log_level, task_id, receiver, description)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (timestamp, level.value, task_id, receiver, description))
+            await conn.commit()
 
-
-async def log_event_general(timestamp: datetime, level: LogLevel, receiver: str, description: str,
-                            pool_type: str = "fastapi"):
+async def log_event_general(timestamp: datetime, level: LogLevel, receiver: str, description: str, pool_type: str = "fastapi"):
     """
     Logs events that are outside of task context, where task_id is not applicable.
 
@@ -151,7 +140,6 @@ async def log_event_general(timestamp: datetime, level: LogLevel, receiver: str,
     """
     await log_event(timestamp, level, "N/A", receiver, description, pool_type=pool_type)
 
-
 async def fetch_logs_by_task_id(task_id: str):
     """
     Fetches logs associated with a specific task_id.
@@ -162,18 +150,17 @@ async def fetch_logs_by_task_id(task_id: str):
     Returns:
         list: A list of log records.
     """
-    conn = await get_connection(pool_type="fastapi")
-    async with conn.cursor() as cur:
-        await cur.execute("""
-            SELECT id, timestamp, log_level, task_id, receiver, description
-            FROM logs
-            WHERE task_id = %s
-            ORDER BY id DESC
-        """, (task_id,))
-        rows = await cur.fetchall()
-    await conn.close()
+    pool = await get_connection(pool_type="fastapi")
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                SELECT id, timestamp, log_level, task_id, receiver, description
+                FROM logs
+                WHERE task_id = %s
+                ORDER BY id DESC
+            """, (task_id,))
+            rows = await cur.fetchall()
     return rows
-
 
 async def fetch_logs_by_receiver(receiver: str):
     """
@@ -185,18 +172,17 @@ async def fetch_logs_by_receiver(receiver: str):
     Returns:
         list: A list of log records.
     """
-    conn = await get_connection(pool_type="fastapi")
-    async with conn.cursor() as cur:
-        await cur.execute("""
-            SELECT id, timestamp, log_level, task_id, receiver, description
-            FROM logs
-            WHERE receiver = %s
-            ORDER BY id DESC
-        """, (receiver,))
-        rows = await cur.fetchall()
-    await conn.close()
+    pool = await get_connection(pool_type="fastapi")
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                SELECT id, timestamp, log_level, task_id, receiver, description
+                FROM logs
+                WHERE receiver = %s
+                ORDER BY id DESC
+            """, (receiver,))
+            rows = await cur.fetchall()
     return rows
-
 
 async def fetch_all_logs():
     """
@@ -205,17 +191,16 @@ async def fetch_all_logs():
     Returns:
         list: A list of all log records.
     """
-    conn = await get_connection(pool_type="fastapi")
-    async with conn.cursor() as cur:
-        await cur.execute("""
-            SELECT timestamp, log_level, task_id, receiver, description
-            FROM logs
-            ORDER BY id DESC
-        """)
-        rows = await cur.fetchall()
-    await conn.close()
+    pool = await get_connection(pool_type="fastapi")
+    async with pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                SELECT timestamp, log_level, task_id, receiver, description
+                FROM logs
+                ORDER BY id DESC
+            """)
+            rows = await cur.fetchall()
     return rows
-
 
 def log_level_as_span(level_str: str) -> str:
     """
