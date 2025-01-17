@@ -1,7 +1,7 @@
 # logs.py
 
 import psycopg
-from psycopg.pool import AsyncConnectionPool
+from psycopg_pool import AsyncConnectionPool
 from datetime import datetime
 from enum import Enum
 from .import_env import get_env_variable
