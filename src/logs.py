@@ -5,7 +5,6 @@ from psycopg_pool import AsyncConnectionPool
 from datetime import datetime
 from enum import Enum
 from .import_env import get_env_variable
-import asyncio
 
 class LogLevel(str, Enum):
     SUCCESS = "SUCCESS"
@@ -19,15 +18,34 @@ POSTGRES_USER = get_env_variable("POSTGRES_USER", default_value="myuser")
 POSTGRES_PASSWORD = get_env_variable("POSTGRES_PASSWORD", default_value="mypass")
 POSTGRES_PORT = get_env_variable("POSTGRES_PORT", default_value="5432")  # Default PostgreSQL port
 
+# Option 1: Using Connection String (conninfo)
+conninfo = f"host={POSTGRES_HOST} port={POSTGRES_PORT} dbname={POSTGRES_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD}"
+
+# Option 2: Using kwargs Dictionary
+# Uncomment the following lines to use kwargs instead of conninfo
+conn_kwargs = {
+     "host": POSTGRES_HOST,
+     "port": POSTGRES_PORT,
+     "dbname": POSTGRES_DB,
+     "user": POSTGRES_USER,
+     "password": POSTGRES_PASSWORD,
+ }
+
 # Initialize the asynchronous connection pool
+# Choose one of the following options:
+
+# Option 1: Using conninfo
 connection_pool = AsyncConnectionPool(
     min_size=1,
     max_size=10,
-    host=POSTGRES_HOST,
-    port=POSTGRES_PORT,
-    dbname=POSTGRES_DB,
-    user=POSTGRES_USER,
-    password=POSTGRES_PASSWORD
+    conninfo=conninfo
+)
+
+# Option 2: Using kwargs
+connection_pool = AsyncConnectionPool(
+     min_size=1,
+     max_size=10,
+     kwargs=conn_kwargs
 )
 
 async def init_logs_table():
@@ -109,3 +127,15 @@ async def fetch_all_logs():
             """)
             rows = await cur.fetchall()
     return rows
+
+# Optional: Move the helper function here or keep it in main.py
+def log_level_as_span(level_str: str) -> str:
+    level_upper = level_str.upper()
+    if level_upper == "SUCCESS":
+        return f"<span class='btn btn-success btn-sm'>{level_str}</span>"
+    elif level_upper == "ERROR":
+        return f"<span class='btn btn-danger btn-sm'>{level_str}</span>"
+    elif level_upper == "INFO":
+        return f"<span class='btn btn-info btn-sm'>{level_str}</span>"
+    else:
+        return f"<span class='btn btn-secondary btn-sm'>{level_str}</span>"

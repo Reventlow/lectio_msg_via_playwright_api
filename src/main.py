@@ -1,6 +1,5 @@
 # main.py
 
-import psycopg
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -11,9 +10,9 @@ from .logs import (
     init_logs_table,
     fetch_logs_by_task_id,
     fetch_logs_by_receiver,
-    fetch_all_logs
+    fetch_all_logs,
+    log_level_as_span  # Assuming this is moved to logs.py
 )
-
 
 app = FastAPI(
     title="Lectio Message Sender",
@@ -247,14 +246,14 @@ async def get_dashboard():
     """
     return HTMLResponse(content=html_content)
 
-# Helper function (move to logs.py if preferred)
-def log_level_as_span(level_str: str) -> str:
-    level_upper = level_str.upper()
-    if level_upper == "SUCCESS":
-        return f"<span class='btn btn-success btn-sm'>{level_str}</span>"
-    elif level_upper == "ERROR":
-        return f"<span class='btn btn-danger btn-sm'>{level_str}</span>"
-    elif level_upper == "INFO":
-        return f"<span class='btn btn-info btn-sm'>{level_str}</span>"
-    else:
-        return f"<span class='btn btn-secondary btn-sm'>{level_str}</span>"
+# Optional: If the helper function is kept in main.py instead of logs.py
+# def log_level_as_span(level_str: str) -> str:
+#     level_upper = level_str.upper()
+#     if level_upper == "SUCCESS":
+#         return f"<span class='btn btn-success btn-sm'>{level_str}</span>"
+#     elif level_upper == "ERROR":
+#         return f"<span class='btn btn-danger btn-sm'>{level_str}</span>"
+#     elif level_upper == "INFO":
+#         return f"<span class='btn btn-info btn-sm'>{level_str}</span>"
+#     else:
+#         return f"<span class='btn btn-secondary btn-sm'>{level_str}</span>"
