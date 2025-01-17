@@ -2,8 +2,7 @@
 
 from celery import Celery, Task
 from datetime import datetime
-from .logs import log_event, LogLevel
-from .lectio import LectioBot
+from .logs import log_event, LogLevel, init_connection_pool
 from .import_env import get_env_variable
 import asyncio
 
@@ -27,22 +26,24 @@ class BaseTaskWithLogging(Task):
     def on_success(self, retval, task_id, args, kwargs):
         # Log successful completion if not already logged
         asyncio.run(log_event(
-            timestamp=datetime.now(),
+            timestamp=datetime.utcnow(),
             level=LogLevel.SUCCESS,
             task_id=task_id,
             receiver=kwargs.get("send_to", "Unknown"),
-            description=f"Task {task_id} completed successfully."
+            description=f"Task {task_id} completed successfully.",
+            pool_type="celery"
         ))
         super().on_success(retval, task_id, args, kwargs)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         # Log failure
         asyncio.run(log_event(
-            timestamp=datetime.now(),
+            timestamp=datetime.utcnow(),
             level=LogLevel.ERROR,
             task_id=task_id,
             receiver=kwargs.get("send_to", "Unknown"),
-            description=f"Task {task_id} failed with error: {str(exc)}"
+            description=f"Task {task_id} failed with error: {str(exc)}",
+            pool_type="celery"
         ))
         super().on_failure(exc, task_id, args, kwargs, einfo)
 
@@ -63,15 +64,22 @@ def send_lectio_msg(
     task_id = self.request.id  # unique Celery task identifier
 
     # Log that we are starting
-    asyncio.run(log_event(
-        timestamp=datetime.now(),
-        level=LogLevel.INFO,
-        task_id=task_id,
-        receiver=send_to,
-        description=f"Starting to send Lectio message to {send_to}."
+    asyncio.run(asyncio.ensure_future(
+        log_event(
+            timestamp=datetime.utcnow(),
+            level=LogLevel.INFO,
+            task_id=task_id,
+            receiver=send_to,
+            description=f"Starting to send Lectio message to {send_to}.",
+            pool_type="celery"
+        )
     ))
 
     try:
+        # Initialize the logs table if not already done
+        asyncio.run(asyncio.ensure_future(init_connection_pool(pool_type="celery")))
+        asyncio.run(asyncio.ensure_future(init_logs_table(pool_type="celery")))
+
         # Create a LectioBot instance with user-supplied credentials
         lectio_session = LectioBot(
             school_id=lectio_school_id,
@@ -81,7 +89,7 @@ def send_lectio_msg(
             applitools_is_active=APPLITOOLS_IS_ACTIVE,
             applitools_api_key=APPLITOOLS_API_KEY,
             applitools_app_name='lectio_msg_sender',
-            applitools_test_name=f'Send msg at {datetime.now()}'
+            applitools_test_name=f'Send msg at {datetime.utcnow()}'
         )
 
         # Send the message
@@ -95,24 +103,30 @@ def send_lectio_msg(
         # If successful, log success (handled by on_success)
 
     except Exception as e:
-        # Log the error with INFO level indicating a retry attempt
-        asyncio.run(log_event(
-            timestamp=datetime.now(),
-            level=LogLevel.INFO,
-            task_id=task_id,
-            receiver=send_to,
-            description=f"Flow attempt {self.request.retries + 1}/20 failed with error: {str(e)}. Will retry..."
+        # Log the error with WARNING level indicating a retry attempt
+        asyncio.run(asyncio.ensure_future(
+            log_event(
+                timestamp=datetime.utcnow(),
+                level=LogLevel.WARNING,  # Changed from INFO to WARNING
+                task_id=task_id,
+                receiver=send_to,
+                description=f"Flow attempt {self.request.retries + 1}/20 failed with error: {str(e)}. Will retry...",
+                pool_type="celery"
+            )
         ))
         try:
             # Retry the task
             self.retry(exc=e)
         except self.MaxRetriesExceededError:
             # Log final failure after all retries
-            asyncio.run(log_event(
-                timestamp=datetime.now(),
-                level=LogLevel.ERROR,
-                task_id=task_id,
-                receiver=send_to,
-                description=f"Task {task_id} failed after {self.request.retries} retries."
+            asyncio.run(asyncio.ensure_future(
+                log_event(
+                    timestamp=datetime.utcnow(),
+                    level=LogLevel.ERROR,
+                    task_id=task_id,
+                    receiver=send_to,
+                    description=f"Task {task_id} failed after {self.request.retries} retries.",
+                    pool_type="celery"
+                )
             ))
             raise e  # Ensure the task is marked as failed in Celery

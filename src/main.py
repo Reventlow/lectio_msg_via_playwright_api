@@ -11,7 +11,7 @@ from .logs import (
     fetch_logs_by_task_id,
     fetch_logs_by_receiver,
     fetch_all_logs,
-    log_level_as_span  # Assuming this is moved to logs.py
+    log_level_as_span
 )
 
 app = FastAPI(
@@ -23,7 +23,18 @@ app = FastAPI(
 # Initialize logs table at startup
 @app.on_event("startup")
 async def startup_event():
-    await init_logs_table()
+    await init_logs_table(pool_type="fastapi")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Gracefully close connection pools on shutdown.
+    """
+    global _fastapi_connection_pool, _celery_connection_pool
+    if _fastapi_connection_pool:
+        await _fastapi_connection_pool.close()
+    if _celery_connection_pool:
+        await _celery_connection_pool.close()
 
 class MessageRequest(BaseModel):
     lectio_school_id: str
@@ -127,7 +138,7 @@ async def get_logs_pretty():
 </body>
 </html>
     """
-    return html_content
+    return HTMLResponse(content=html_content)
 
 @app.websocket("/ws/dashboard")
 async def websocket_dashboard(websocket: WebSocket):
@@ -245,15 +256,3 @@ async def get_dashboard():
 </html>
     """
     return HTMLResponse(content=html_content)
-
-# Optional: If the helper function is kept in main.py instead of logs.py
-# def log_level_as_span(level_str: str) -> str:
-#     level_upper = level_str.upper()
-#     if level_upper == "SUCCESS":
-#         return f"<span class='btn btn-success btn-sm'>{level_str}</span>"
-#     elif level_upper == "ERROR":
-#         return f"<span class='btn btn-danger btn-sm'>{level_str}</span>"
-#     elif level_upper == "INFO":
-#         return f"<span class='btn btn-info btn-sm'>{level_str}</span>"
-#     else:
-#         return f"<span class='btn btn-secondary btn-sm'>{level_str}</span>"
