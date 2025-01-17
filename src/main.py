@@ -245,10 +245,7 @@ def get_dashboard():
         <pre id="worker-data">Loading...</pre>
     </div>
 
-    <div id="queue-status">
-        <h2>Queue Status</h2>
-        <pre id="queue-data">Loading...</pre>
-    </div>
+
 
     <script>
         const ws = new WebSocket("ws://10.18.225.150:8010/ws/dashboard");
