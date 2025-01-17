@@ -156,6 +156,7 @@ def get_logs_pretty():
     """
     return html_content
 
+
 @app.websocket("/ws/dashboard")
 async def websocket_dashboard(websocket: WebSocket):
     await websocket.accept()
@@ -168,17 +169,30 @@ async def websocket_dashboard(websocket: WebSocket):
             active = inspector.active() or {}
             reserved = inspector.reserved() or {}
             stats = inspector.stats() or {}
+            scheduled = inspector.scheduled() or {}
 
             workers_status = {}
-            for worker, info in stats.items():
+            for worker, worker_stats in stats.items():
+                # Retrieve task lists for this worker (could be empty lists)
+                active_tasks = active.get(worker, [])
+                reserved_tasks = reserved.get(worker, [])
+                scheduled_tasks = scheduled.get(worker, [])
+
+                # Sort each list by 'id' (if present). Some celery versions store 'id',
+                # older versions might store 'task_id'. Adjust accordingly.
+                active_tasks.sort(key=lambda t: t.get('id', ''))
+                reserved_tasks.sort(key=lambda t: t.get('id', ''))
+                scheduled_tasks.sort(key=lambda t: t.get('id', ''))
+
                 workers_status[worker] = {
-                    "active_tasks": active.get(worker, []),
-                    "reserved_tasks": reserved.get(worker, []),
+                    "active_tasks": active_tasks,
+                    "reserved_tasks": reserved_tasks,
+                    "scheduled_tasks": scheduled_tasks,
                     "status": "Online"
                 }
 
             queue_status = {
-                "scheduled": inspector.scheduled() or {},
+                "scheduled": scheduled,
                 "reserved": reserved,
                 "active": active,
             }
