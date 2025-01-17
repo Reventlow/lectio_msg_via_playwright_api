@@ -233,7 +233,7 @@ def get_dashboard():
             padding: 10px;
             border-radius: 5px;
             overflow: auto;
-            max-height: 300px;
+            max-height: 700px;
         }
     </style>
 </head>
