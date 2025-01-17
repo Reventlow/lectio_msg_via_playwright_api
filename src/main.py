@@ -132,13 +132,13 @@ def get_logs_pretty():
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>Lectio Message Logs</title>
+  <title>Lectio API Message Logs</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" 
     integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 </head>
 <body class="p-4">
   <div class="container">
-    <h2 class="mb-4">Lectio Message Logs</h2>
+    <h2 class="mb-4">Lectio API Message Logs</h2>
     <table class="table table-striped table-bordered table-hover">
       <thead class="bg-dark text-white">
         <tr><th>timestamp</th><th>log_level</th><th>task_id</th><th>receiver</th><th>description</th></tr>
@@ -168,17 +168,30 @@ async def websocket_dashboard(websocket: WebSocket):
             active = inspector.active() or {}
             reserved = inspector.reserved() or {}
             stats = inspector.stats() or {}
+            scheduled = inspector.scheduled() or {}
 
             workers_status = {}
-            for worker, info in stats.items():
+            for worker, worker_stats in stats.items():
+                # Retrieve task lists for this worker (could be empty lists)
+                active_tasks = active.get(worker, [])
+                reserved_tasks = reserved.get(worker, [])
+                scheduled_tasks = scheduled.get(worker, [])
+
+                # Sort each list by 'id' (if present). Some celery versions store 'id',
+                # older versions might store 'task_id'. Adjust accordingly.
+                active_tasks.sort(key=lambda t: t.get('id', ''))
+                reserved_tasks.sort(key=lambda t: t.get('id', ''))
+                scheduled_tasks.sort(key=lambda t: t.get('id', ''))
+
                 workers_status[worker] = {
-                    "active_tasks": active.get(worker, []),
-                    "reserved_tasks": reserved.get(worker, []),
+                    "active_tasks": active_tasks,
+                    "reserved_tasks": reserved_tasks,
+                    "scheduled_tasks": scheduled_tasks,
                     "status": "Online"
                 }
 
             queue_status = {
-                "scheduled": inspector.scheduled() or {},
+                "scheduled": scheduled,
                 "reserved": reserved,
                 "active": active,
             }
@@ -205,7 +218,7 @@ def get_dashboard():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Dashboard</title>
+    <title>Lectio A API Real-Time Dashboard/title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -224,7 +237,7 @@ def get_dashboard():
     </style>
 </head>
 <body>
-    <h1>Real-Time Dashboard</h1>
+    <h1>Lectio A API Real-Time Dashboard</h1>
 
     <div id="worker-status">
         <h2>Worker Status</h2>
