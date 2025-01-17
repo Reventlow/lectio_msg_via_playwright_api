@@ -229,7 +229,7 @@ async def get_dashboard():
     </div>
 
     <script>
-        const ws = new WebSocket("ws://localhost:8000/ws/dashboard");
+        const ws = new WebSocket("ws://10.18.225.150:8010/ws/dashboard");
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
