@@ -1,3 +1,5 @@
+# main.py
+
 import psycopg
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
@@ -5,7 +7,13 @@ from pydantic import BaseModel
 from datetime import datetime
 from asyncio import sleep
 from .tasks import send_lectio_msg
-from .logs import init_logs_table, get_connection
+from .logs import (
+    init_logs_table,
+    fetch_logs_by_task_id,
+    fetch_logs_by_receiver,
+    fetch_all_logs
+)
+
 
 app = FastAPI(
     title="Lectio Message Sender",
@@ -15,8 +23,8 @@ app = FastAPI(
 
 # Initialize logs table at startup
 @app.on_event("startup")
-def startup_event():
-    init_logs_table()
+async def startup_event():
+    await init_logs_table()
 
 class MessageRequest(BaseModel):
     lectio_school_id: str
@@ -28,11 +36,11 @@ class MessageRequest(BaseModel):
     can_be_replied: bool = True
 
 @app.get("/", tags=["Health"])
-def health_check():
-    return {"status": "ok", "timestamp": datetime.now()}
+async def health_check():
+    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
 @app.post("/send-message", tags=["Messages"])
-def api_send_message(request: MessageRequest):
+async def api_send_message(request: MessageRequest):
     task = send_lectio_msg.delay(
         lectio_school_id=request.lectio_school_id,
         lectio_user=request.lectio_user,
@@ -45,20 +53,8 @@ def api_send_message(request: MessageRequest):
     return {"task_id": task.id, "status": "Task submitted"}
 
 @app.get("/logs/by_task_id/{task_id}", tags=["Logs"])
-def get_logs_by_task_id(task_id: str):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, timestamp, log_level, task_id, receiver, description
-                FROM logs
-                WHERE task_id = %s
-                ORDER BY id DESC
-            """, (task_id,))
-            rows = cur.fetchall()
-    finally:
-        conn.close()
-
+async def get_logs_by_task_id(task_id: str):
+    rows = await fetch_logs_by_task_id(task_id)
     return [
         {
             "id": row[0],
@@ -72,20 +68,8 @@ def get_logs_by_task_id(task_id: str):
     ]
 
 @app.get("/logs/by_receiver/{receiver}", tags=["Logs"])
-def get_logs_by_receiver(receiver: str):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, timestamp, log_level, task_id, receiver, description
-                FROM logs
-                WHERE receiver = %s
-                ORDER BY id DESC
-            """, (receiver,))
-            rows = cur.fetchall()
-    finally:
-        conn.close()
-
+async def get_logs_by_receiver_endpoint(receiver: str):
+    rows = await fetch_logs_by_receiver(receiver)
     return [
         {
             "id": row[0],
@@ -99,18 +83,8 @@ def get_logs_by_receiver(receiver: str):
     ]
 
 @app.get("/logs", response_class=HTMLResponse, tags=["Logs"])
-def get_logs_pretty():
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT timestamp, log_level, task_id, receiver, description
-                FROM logs
-                ORDER BY id DESC
-            """)
-            rows = cur.fetchall()
-    finally:
-        conn.close()
+async def get_logs_pretty():
+    rows = await fetch_all_logs()
 
     tbody_rows = ""
     for row in rows:
@@ -156,7 +130,6 @@ def get_logs_pretty():
     """
     return html_content
 
-
 @app.websocket("/ws/dashboard")
 async def websocket_dashboard(websocket: WebSocket):
     await websocket.accept()
@@ -198,7 +171,7 @@ async def websocket_dashboard(websocket: WebSocket):
             }
 
             await websocket.send_json({
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.utcnow().isoformat(),
                 "workers": workers_status,
                 "queue": queue_status
             })
@@ -212,7 +185,7 @@ async def websocket_dashboard(websocket: WebSocket):
         await websocket.close()
 
 @app.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"])
-def get_dashboard():
+async def get_dashboard():
     html_content = """
 <!DOCTYPE html>
 <html lang="en">
@@ -245,29 +218,28 @@ def get_dashboard():
         <pre id="worker-data">Loading...</pre>
     </div>
 
-
-
     <script>
-        const ws = new WebSocket("ws://10.18.225.150:8010/ws/dashboard");
+        const ws = new WebSocket("ws://localhost:8000/ws/dashboard");
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             const { timestamp, workers, queue } = data;
 
             document.getElementById("worker-data").textContent = JSON.stringify(workers, null, 2);
-            document.getElementById("queue-data").textContent = JSON.stringify(queue, null, 2);
+            // If you have a queue-data element, you can update it similarly
+            // document.getElementById("queue-data").textContent = JSON.stringify(queue, null, 2);
         };
 
         ws.onerror = (event) => {
             console.error("WebSocket error:", event);
             document.getElementById("worker-data").textContent = "Error fetching worker data.";
-            document.getElementById("queue-data").textContent = "Error fetching queue data.";
+            // document.getElementById("queue-data").textContent = "Error fetching queue data.";
         };
 
         ws.onclose = () => {
             console.log("WebSocket connection closed");
             document.getElementById("worker-data").textContent = "WebSocket connection closed.";
-            document.getElementById("queue-data").textContent = "WebSocket connection closed.";
+            // document.getElementById("queue-data").textContent = "WebSocket connection closed.";
         };
     </script>
 </body>
@@ -275,6 +247,7 @@ def get_dashboard():
     """
     return HTMLResponse(content=html_content)
 
+# Helper function (move to logs.py if preferred)
 def log_level_as_span(level_str: str) -> str:
     level_upper = level_str.upper()
     if level_upper == "SUCCESS":

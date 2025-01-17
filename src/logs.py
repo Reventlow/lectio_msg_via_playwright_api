@@ -65,3 +65,47 @@ async def log_event_general(timestamp: datetime, level: LogLevel, receiver: str,
     Logs events that are outside of task context, where task_id is not applicable.
     """
     await log_event(timestamp, level, "N/A", receiver, description)
+
+async def fetch_logs_by_task_id(task_id: str):
+    """
+    Fetches logs associated with a specific task_id.
+    """
+    async with connection_pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                SELECT id, timestamp, log_level, task_id, receiver, description
+                FROM logs
+                WHERE task_id = %s
+                ORDER BY id DESC
+            """, (task_id,))
+            rows = await cur.fetchall()
+    return rows
+
+async def fetch_logs_by_receiver(receiver: str):
+    """
+    Fetches logs associated with a specific receiver.
+    """
+    async with connection_pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                SELECT id, timestamp, log_level, task_id, receiver, description
+                FROM logs
+                WHERE receiver = %s
+                ORDER BY id DESC
+            """, (receiver,))
+            rows = await cur.fetchall()
+    return rows
+
+async def fetch_all_logs():
+    """
+    Fetches all logs from the logs table.
+    """
+    async with connection_pool.connection() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("""
+                SELECT timestamp, log_level, task_id, receiver, description
+                FROM logs
+                ORDER BY id DESC
+            """)
+            rows = await cur.fetchall()
+    return rows
