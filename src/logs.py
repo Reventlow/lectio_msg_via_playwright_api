@@ -1,10 +1,10 @@
 # logs.py
-
 import psycopg
 from datetime import datetime
 from enum import Enum
 from os import getenv
 from .import_env import get_env_variable
+import os
 
 class LogLevel(str, Enum):
     SUCCESS = "SUCCESS"
@@ -16,14 +16,41 @@ POSTGRES_HOST = get_env_variable("POSTGRES_HOST", default_value="db")
 POSTGRES_DB = get_env_variable("POSTGRES_DB", default_value="logsdb")
 POSTGRES_USER = get_env_variable("POSTGRES_USER", default_value="myuser")
 POSTGRES_PASSWORD = get_env_variable("POSTGRES_PASSWORD", default_value="mypass")
+POSTGRES_PORT = get_env_variable("POSTGRES_PORT", default_value="5432")  # Default PostgreSQL port
+
+# Use a connection pool for better performance
+from psycopg.pool import SimpleConnectionPool
+
+# Initialize the connection pool
+connection_pool = SimpleConnectionPool(
+    minconn=1,
+    maxconn=10,
+    host=POSTGRES_HOST,
+    port=POSTGRES_PORT,
+    dbname=POSTGRES_DB,
+    user=POSTGRES_USER,
+    password=POSTGRES_PASSWORD
+)
 
 def get_connection():
-    return psycopg.connect(
-        host=POSTGRES_HOST,
-        dbname=POSTGRES_DB,
-        user=POSTGRES_USER,
-        password=POSTGRES_PASSWORD
-    )
+    """
+    Retrieves a connection from the pool.
+    """
+    try:
+        conn = connection_pool.getconn()
+        return conn
+    except Exception as e:
+        print(f"Error obtaining database connection: {e}")
+        raise e
+
+def release_connection(conn):
+    """
+    Releases a connection back to the pool.
+    """
+    try:
+        connection_pool.putconn(conn)
+    except Exception as e:
+        print(f"Error releasing database connection: {e}")
 
 def init_logs_table():
     """
@@ -43,8 +70,12 @@ def init_logs_table():
                 );
             """)
             conn.commit()
+    except Exception as e:
+        print(f"Error initializing logs table: {e}")
+        conn.rollback()
+        raise e
     finally:
-        conn.close()
+        release_connection(conn)
 
 def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver: str, description: str):
     """
@@ -58,5 +89,15 @@ def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver: str,
                 VALUES (%s, %s, %s, %s, %s)
             """, (timestamp, level.value, task_id, receiver, description))
             conn.commit()
+    except Exception as e:
+        print(f"Error logging event: {e}")
+        conn.rollback()
+        raise e
     finally:
-        conn.close()
+        release_connection(conn)
+
+def log_event_general(timestamp: datetime, level: LogLevel, receiver: str, description: str):
+    """
+    Logs events that are outside of task context, where task_id is not applicable.
+    """
+    log_event(timestamp, level, "N/A", receiver, description)
