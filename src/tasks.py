@@ -2,12 +2,20 @@
 
 from celery import Celery, Task
 from datetime import datetime
-from .logs import log_event, LogLevel, init_connection_pool, init_logs_table
+from .logs import (
+    log_event,
+    LogLevel,
+    fetch_logs_by_task_id,
+    fetch_logs_by_receiver,
+    fetch_all_logs,
+    log_level_as_span,
+    init_connection_pool,
+    init_logs_table
+)
+from .lectio import LectioBot
 from .import_env import get_env_variable
 import asyncio
-from .lectio import LectioBot
 
-# Celery Configuration
 CELERY_BROKER_URL = get_env_variable("CELERY_BROKER_URL") or "redis://redis:6379/0"
 CELERY_BACKEND_URL = get_env_variable("CELERY_BACKEND_URL") or "redis://redis:6379/1"
 
@@ -119,7 +127,7 @@ def send_lectio_msg(
             send_to=send_to,
             subject=subject,
             msg=message,
-            can_be_replied=can_be_replied
+            can_be_replied=can_be_replied  # Correct keyword argument
         )
 
         # If successful, log success (handled by on_success)
@@ -132,7 +140,9 @@ def send_lectio_msg(
                 level=LogLevel.WARNING,  # Changed from INFO to WARNING
                 task_id=task_id,
                 receiver=send_to,
-                description=f"Flow attempt {self.request.retries + 1}/20 failed with error: {str(e)}. Will retry...",
+                description=(
+                    f"Flow attempt {self.request.retries + 1}/20 failed with error: {str(e)}. Will retry..."
+                ),
                 pool_type="celery"
             )
         )
@@ -147,7 +157,9 @@ def send_lectio_msg(
                     level=LogLevel.ERROR,
                     task_id=task_id,
                     receiver=send_to,
-                    description=f"Task {task_id} failed after {self.request.retries} retries.",
+                    description=(
+                        f"Task {task_id} failed after {self.request.retries} retries."
+                    ),
                     pool_type="celery"
                 )
             )
