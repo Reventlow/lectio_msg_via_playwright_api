@@ -20,12 +20,6 @@ _celery_connection_pool = None
 async def init_connection_pool(pool_type: str = "fastapi"):
     """
     Initializes the asynchronous connection pool based on the pool type.
-
-    Args:
-        pool_type (str): Type of the pool to initialize. Should be either 'fastapi' or 'celery'.
-
-    Raises:
-        ValueError: If an unsupported pool_type is provided.
     """
     global _fastapi_connection_pool, _celery_connection_pool
 
@@ -51,9 +45,6 @@ async def init_connection_pool(pool_type: str = "fastapi"):
 def construct_conninfo() -> str:
     """
     Constructs the PostgreSQL connection string from environment variables.
-
-    Returns:
-        str: The connection string.
     """
     POSTGRES_HOST = get_env_variable("POSTGRES_HOST", default_value="db")
     POSTGRES_DB = get_env_variable("POSTGRES_DB", default_value="logsdb")
@@ -66,12 +57,6 @@ def construct_conninfo() -> str:
 async def get_connection(pool_type: str = "fastapi") -> AsyncConnectionPool:
     """
     Retrieves the connection pool based on the pool type.
-
-    Args:
-        pool_type (str): Type of the pool to retrieve connection from. Should be either 'fastapi' or 'celery'.
-
-    Returns:
-        AsyncConnectionPool: The connection pool instance.
     """
     if pool_type == "fastapi":
         if _fastapi_connection_pool is None:
@@ -87,9 +72,6 @@ async def get_connection(pool_type: str = "fastapi") -> AsyncConnectionPool:
 async def init_logs_table(pool_type: str = "fastapi"):
     """
     Creates the logs table if it doesn't exist.
-
-    Args:
-        pool_type (str): Type of the pool to use for the connection. 'fastapi' or 'celery'.
     """
     pool = await get_connection(pool_type)
     async with pool.connection() as conn:
@@ -109,14 +91,6 @@ async def init_logs_table(pool_type: str = "fastapi"):
 async def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver: str, description: str, pool_type: str = "fastapi"):
     """
     Writes a log entry to the PostgreSQL database asynchronously.
-
-    Args:
-        timestamp (datetime): The timestamp of the log.
-        level (LogLevel): The level of the log.
-        task_id (str): The Celery task ID.
-        receiver (str): The receiver of the message.
-        description (str): The log description.
-        pool_type (str): Type of the pool to use. 'fastapi' or 'celery'.
     """
     pool = await get_connection(pool_type)
     async with pool.connection() as conn:
@@ -130,25 +104,12 @@ async def log_event(timestamp: datetime, level: LogLevel, task_id: str, receiver
 async def log_event_general(timestamp: datetime, level: LogLevel, receiver: str, description: str, pool_type: str = "fastapi"):
     """
     Logs events that are outside of task context, where task_id is not applicable.
-
-    Args:
-        timestamp (datetime): The timestamp of the log.
-        level (LogLevel): The level of the log.
-        receiver (str): The receiver of the message.
-        description (str): The log description.
-        pool_type (str): Type of the pool to use. 'fastapi' or 'celery'.
     """
     await log_event(timestamp, level, "N/A", receiver, description, pool_type=pool_type)
 
 async def fetch_logs_by_task_id(task_id: str):
     """
     Fetches logs associated with a specific task_id.
-
-    Args:
-        task_id (str): The Celery task ID.
-
-    Returns:
-        list: A list of log records.
     """
     pool = await get_connection(pool_type="fastapi")
     async with pool.connection() as conn:
@@ -165,12 +126,6 @@ async def fetch_logs_by_task_id(task_id: str):
 async def fetch_logs_by_receiver(receiver: str):
     """
     Fetches logs associated with a specific receiver.
-
-    Args:
-        receiver (str): The receiver of the message.
-
-    Returns:
-        list: A list of log records.
     """
     pool = await get_connection(pool_type="fastapi")
     async with pool.connection() as conn:
@@ -187,9 +142,6 @@ async def fetch_logs_by_receiver(receiver: str):
 async def fetch_all_logs():
     """
     Fetches all logs from the logs table.
-
-    Returns:
-        list: A list of all log records.
     """
     pool = await get_connection(pool_type="fastapi")
     async with pool.connection() as conn:
@@ -205,12 +157,6 @@ async def fetch_all_logs():
 def log_level_as_span(level_str: str) -> str:
     """
     Converts a log level string into an HTML span with appropriate styling.
-
-    Args:
-        level_str (str): The log level string.
-
-    Returns:
-        str: The HTML span element as a string.
     """
     level_upper = level_str.upper()
     if level_upper == "SUCCESS":
