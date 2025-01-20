@@ -5,7 +5,7 @@ from datetime import datetime
 from .logs import log_event, LogLevel, init_connection_pool, init_logs_table
 from .import_env import get_env_variable
 import asyncio
-from lectio import LectioBot
+from .lectio import LectioBot
 
 # Celery Configuration
 CELERY_BROKER_URL = get_env_variable("CELERY_BROKER_URL") or "redis://redis:6379/0"
