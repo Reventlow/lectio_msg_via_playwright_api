@@ -1,3 +1,5 @@
+# lectio.py
+
 from datetime import datetime
 import sys
 import time
@@ -120,7 +122,7 @@ class LectioBot:
             print(e)
             return False
 
-    def send_message(self, send_to: str, subject: str, msg: str, this_msg_can_be_replied: bool) -> bool:
+    def send_message(self, send_to: str, subject: str, msg: str, can_be_replied: bool) -> bool:
         """
         Fills out the 'send message' form. Includes a 20x retry for the recipient field.
         Returns True if the send operation was successful, False otherwise.
@@ -176,7 +178,7 @@ class LectioBot:
         subject_field.fill(subject)
 
         # Check if the message can be replied to
-        if not this_msg_can_be_replied:
+        if not can_be_replied:
             self.page.click("#s_m_Content_Content_MessageThreadCtrl_RepliesNotAllowedChkBox")
 
         # Fill out the message field
